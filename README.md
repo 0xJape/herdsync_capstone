@@ -101,6 +101,7 @@ HerdSync is a cattle-management information system for the MSU-General Santos Co
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection used by app and scripts |
+| `APP_ORIGIN` | Behind a proxy | Public HTTPS origin used for CSRF validation, such as `https://herdsync.dotenvlabs.me` |
 | `ADMIN_EMAIL` | Admin creation only | Initial administrator email |
 | `ADMIN_PASSWORD` | Admin creation only | Initial administrator password; minimum 12 characters |
 | `ADMIN_NAME` | Admin creation only | Initial administrator display name |

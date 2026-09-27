@@ -7,7 +7,8 @@ export function proxy(request: NextRequest) {
     const mutating = !["GET", "HEAD", "OPTIONS"].includes(request.method);
     const origin = request.headers.get("origin");
     const crossSite = request.headers.get("sec-fetch-site") === "cross-site";
-    if (mutating && (crossSite || (origin && origin !== request.nextUrl.origin))) {
+    const allowedOrigins = new Set([request.nextUrl.origin, process.env.APP_ORIGIN].filter(Boolean));
+    if (mutating && (crossSite || (origin && !allowedOrigins.has(origin)))) {
       return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
     }
     const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
