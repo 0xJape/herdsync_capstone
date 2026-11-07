@@ -10,6 +10,7 @@ import { useCurrentRole } from "@/lib/use-current-role";
 import CattlePreview from "../cattle-preview";
 import RegistrationForm from "../registration-form";
 import { safeReturnPath } from "@/lib/return-path";
+import { ageInMonths } from "@/lib/breeding-rules";
 
 type Relative = { id: number; tag_number: string; name: string | null; breed: string };
 type Animal = Record<string, unknown> & { id: number; tag_number: string; name: string | null; breed: string; sex: string; category: string; status: string; purchased: boolean; current_weight_kg: string | null; body_condition_score: number | null; pedigree?: { sire: Relative | null; dam: Relative | null; offspring: Relative[] } };
@@ -120,11 +121,11 @@ export default function CattleProfile({ params }: { params: Promise<{ id: string
   function openHealthRecord() { setError(""); setHealthModalOpen(true); }
   function openBreedingRecord() {
     if (!animal) return;
-    const ageMonths = Number(animal.birth_date) ? Math.max(0, Math.floor((Date.parse(`${today()}T00:00:00Z`) - Date.parse(`${String(animal.birth_date).slice(0, 10)}T00:00:00Z`)) / 2_629_800_000)) : 0;
+    const ageMonths = animal.birth_date ? ageInMonths(String(animal.birth_date).slice(0, 10), today()) : 0;
     const health = String(animal.health_status || "").toLowerCase();
     const heatRecorded = breeding.some((record) => record.event_type === "heat_observed" && record.event_date.slice(0, 10) >= addDays(today(), -21));
     const requirements: Requirement[] = [
-      { label: "Female cattle", detail: animal.sex.toLowerCase() === "female" ? "Eligible sex" : "Breeding requires female cattle", ok: animal.sex.toLowerCase() === "female" },
+      { label: "Eligible sex", detail: animal.sex.toLowerCase() === "female" ? "Female cattle can be selected as dam" : "Male cattle can be selected as sire", ok: true },
       { label: "Minimum age", detail: ageMonths >= 18 ? `${ageMonths} months old` : `Only ${ageMonths} months; minimum is 18 months`, ok: ageMonths >= 18 },
       { label: "Health status", detail: ["good", "excellent", "healthy"].includes(health) ? "Good health recorded" : health ? `Health status: ${animal.health_status}` : "Health status not recorded", ok: ["good", "excellent", "healthy"].includes(health) },
       { label: "Body condition score", detail: animal.body_condition_score != null && animal.body_condition_score >= 2 && animal.body_condition_score <= 4 ? `BCS ${animal.body_condition_score}; target 2-4` : `BCS ${animal.body_condition_score ?? "not recorded"}; target 2-4`, ok: animal.body_condition_score != null && animal.body_condition_score >= 2 && animal.body_condition_score <= 4 },
@@ -194,7 +195,7 @@ export default function CattleProfile({ params }: { params: Promise<{ id: string
       <section className="panel pedigree-panel" aria-labelledby="pedigree-title">
         <header className="section-heading">
           <div><span className="cattle-eyebrow">Breeding records</span><h2 id="pedigree-title"><GitBranch size={18}/> Pedigree</h2></div>
-          <button type="button" className="primary-button no-print" onClick={openBreedingRecord}><Dna size={16}/> Add breeding record</button>
+          <div className="profile-breeding-actions no-print"><button type="button" className="secondary-button" onClick={() => router.push(`/breeding?livestock_id=${animal.id}&heat=1`)}><Activity size={16}/> Record heat</button><button type="button" className="primary-button" onClick={openBreedingRecord}><Dna size={16}/> Add breeding record</button></div>
         </header>
         <div className="pedigree-tree"><div className="pedigree-generation pedigree-parents">{([animal.pedigree?.sire, animal.pedigree?.dam] as const).map((relative, i) => relative ? <Link key={relative.id} href={`/livestock/${relative.id}`} className="pedigree-node"><small>{i ? "Dam" : "Sire"}</small><strong>{relative.tag_number}</strong><span>{relative.name || relative.breed}</span></Link> : <div key={i} className="pedigree-node pedigree-empty"><small>{i ? "Dam" : "Sire"}</small><strong>Unknown</strong><span>Not registered</span></div>)}</div><div className="pedigree-connector"/><div className="pedigree-node pedigree-current"><small>Current animal</small><strong>{animal.tag_number}</strong><span>{animal.name || animal.breed}</span></div>{animal.pedigree?.offspring?.length ? <><div className="pedigree-down"/><div className="pedigree-generation pedigree-offspring" style={{ "--offspring-count": animal.pedigree.offspring.length } as CSSProperties}>{animal.pedigree.offspring.map((relative) => <Link key={relative.id} href={`/livestock/${relative.id}`} className="pedigree-node"><small>Offspring</small><strong>{relative.tag_number}</strong><span>{relative.name || relative.breed}</span></Link>)}</div></> : <div className="pedigree-none"><div aria-hidden="true"><Dna size={18}/></div><strong>No offspring recorded</strong><span>Registered offspring will appear here.</span></div>}</div>
       </section>
