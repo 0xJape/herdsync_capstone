@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, { params }: Context) {
     } else {
       await client.query("UPDATE livestock SET health_status = 'fair', updated_at = NOW() WHERE id = $1", [record.livestock_id]);
     }
-    await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'create', 'health', $2, $3, $4)", [auth.user.id, checkup.rows[0].id, `checkup · ${record.tag_number}`, outcome === "recovered" ? "Recovery checkup recorded" : `Monitoring checkup recorded; next checkup ${nextDate}`]);
+    await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'create', 'health', $2, $3, $4)", [auth.user.id, checkup.rows[0].id, `checkup  -  ${record.tag_number}`, outcome === "recovered" ? "Recovery checkup recorded" : `Monitoring checkup recorded; next checkup ${nextDate}`]);
     await client.query("COMMIT");
     return NextResponse.json(checkup.rows[0], { status: 201 });
   } catch (error) {

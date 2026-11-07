@@ -7,8 +7,11 @@ export function proxy(request: NextRequest) {
     const mutating = !["GET", "HEAD", "OPTIONS"].includes(request.method);
     const origin = request.headers.get("origin");
     const crossSite = request.headers.get("sec-fetch-site") === "cross-site";
-    const allowedOrigins = new Set([request.nextUrl.origin, process.env.APP_ORIGIN].filter(Boolean));
-    if (mutating && (crossSite || (origin && !allowedOrigins.has(origin)))) {
+    const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+    const host = forwardedHost || request.headers.get("host");
+    const protocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || request.nextUrl.protocol.slice(0, -1);
+    const allowedOrigins = new Set([request.nextUrl.origin, process.env.APP_ORIGIN, "https://herdsync.dotenvlabs.me", host && `${protocol}://${host}`].filter(Boolean));
+    if (mutating && ((origin && !allowedOrigins.has(origin)) || (!origin && crossSite))) {
       return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
     }
     const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();

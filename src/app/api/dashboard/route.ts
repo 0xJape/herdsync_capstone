@@ -9,6 +9,9 @@ export async function GET(request: Request) {
   const rangeValue = Number(searchParams.get("range") ?? 7);
   const range = rangeValue === 3 || rangeValue === 30 ? rangeValue : 7;
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const search = searchParams.get("search")?.trim() ?? "";
+  const category = searchParams.get("category")?.trim() ?? "";
+  const urgency = searchParams.get("urgency")?.trim() ?? "";
   const pageSize = 7;
   const careSchedule = `
     SELECT h.id, h.livestock_id, h.record_type, h.follow_up_date AS due_date, 'Follow-up' AS title
@@ -52,9 +55,10 @@ export async function GET(request: Request) {
   const alertColumns = `SELECT s.title, s.livestock_id AS "livestockId", l.tag_number AS "tagNumber", s.due_date::text AS "dueDate", COALESCE(ABS(s.due_date - CURRENT_DATE), 0)::int AS "dayCount", CASE WHEN s.due_date IS NULL THEN 'unscheduled' WHEN s.due_date < CURRENT_DATE THEN 'critical' WHEN s.due_date = CURRENT_DATE THEN 'today' WHEN s.due_date <= CURRENT_DATE + 3 THEN 'high' ELSE 'warning' END level, CASE WHEN s.record_type IN ('pregnancy_check','pregnancy_checkup') THEN 'Breeding' WHEN s.record_type = 'expected_calving' THEN 'Calving' WHEN s.record_type = 'heat_cycle' THEN 'Heat cycle' WHEN s.record_type = 'calf_care' THEN 'Calf care' WHEN s.title = 'Withdrawal ends' THEN 'Treatment' WHEN s.record_type = 'vaccination' OR s.record_type = 'vitamins' THEN 'Preventive care' WHEN s.record_type = 'dewormer' THEN 'Parasite control' ELSE 'Health check' END category, CASE WHEN s.due_date IS NULL THEN 'Schedule needed' WHEN s.due_date < CURRENT_DATE THEN 'Overdue by ' || (CURRENT_DATE - s.due_date) || CASE WHEN CURRENT_DATE - s.due_date = 1 THEN ' day' ELSE ' days' END WHEN s.due_date = CURRENT_DATE THEN 'Due today' ELSE 'Due in ' || (s.due_date - CURRENT_DATE) || CASE WHEN s.due_date - CURRENT_DATE = 1 THEN ' day' ELSE ' days' END END timing FROM care_schedule s JOIN livestock l ON l.id = s.livestock_id`;
   const attentionWhere = `WHERE s.due_date IS NULL OR s.due_date < CURRENT_DATE OR s.due_date <= CURRENT_DATE + $1::int`;
   const getAttention = async () => {
+    const filteredAttention = `SELECT * FROM (${alertColumns} ${attentionWhere}) a WHERE ($2::text = '' OR a."tagNumber" ILIKE '%' || $2 || '%' OR a.title ILIKE '%' || $2 || '%') AND ($3::text = '' OR a.category = $3) AND ($4::text = '' OR a.level = $4)`;
     const [items, total] = await Promise.all([
-      db.query(`WITH care_schedule AS (${careSchedule}) ${alertColumns} ${attentionWhere} ORDER BY s.due_date ASC NULLS FIRST, s.id DESC LIMIT $2 OFFSET $3`, [range, pageSize, (page - 1) * pageSize]),
-      db.query(`WITH care_schedule AS (${careSchedule}) SELECT COUNT(*)::int total FROM care_schedule s ${attentionWhere}`, [range]),
+      db.query(`WITH care_schedule AS (${careSchedule}) ${filteredAttention} ORDER BY a."dueDate" ASC NULLS FIRST, a."livestockId" DESC LIMIT $5 OFFSET $6`, [range, search, category, urgency, pageSize, (page - 1) * pageSize]),
+      db.query(`WITH care_schedule AS (${careSchedule}) SELECT COUNT(*)::int total FROM (${filteredAttention}) filtered`, [range, search, category, urgency]),
     ]);
     const count = total.rows[0].total as number;
     return { items: items.rows, total: count, page, pageSize, hasNext: page * pageSize < count };
@@ -66,14 +70,14 @@ export async function GET(request: Request) {
       db.query(`SELECT CASE WHEN notes ILIKE '%yearling bull%' THEN 'Yearling bull' WHEN notes ILIKE '%heifer%' THEN 'Heifer' WHEN notes ILIKE '%calf%' THEN 'Calf' WHEN notes ILIKE '%bull%' THEN 'Bull' WHEN notes ILIKE '%cow%' THEN 'Cow' ELSE 'Other' END label, COUNT(*)::int value FROM livestock WHERE status = 'active' AND archived_at IS NULL GROUP BY 1 ORDER BY CASE CASE WHEN notes ILIKE '%yearling bull%' THEN 'Yearling bull' WHEN notes ILIKE '%heifer%' THEN 'Heifer' WHEN notes ILIKE '%calf%' THEN 'Calf' WHEN notes ILIKE '%bull%' THEN 'Bull' WHEN notes ILIKE '%cow%' THEN 'Cow' ELSE 'Other' END WHEN 'Bull' THEN 1 WHEN 'Yearling bull' THEN 2 WHEN 'Cow' THEN 3 WHEN 'Heifer' THEN 4 WHEN 'Calf' THEN 5 ELSE 6 END`),
     db.query(`SELECT to_char(month_start, 'Mon') AS "month", COUNT(l.id)::int value FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') AS months(month_start) LEFT JOIN livestock l ON l.created_at < month_start + interval '1 month' AND l.archived_at IS NULL GROUP BY month_start ORDER BY month_start`),
       db.query(`WITH care_schedule AS (${careSchedule}) ${alertColumns} WHERE s.due_date <= CURRENT_DATE + 90 ORDER BY s.due_date, s.id DESC`),
-      db.query(`SELECT title, detail FROM (SELECT 'Registered ' || tag_number title, breed || ' cattle record added' detail, created_at FROM livestock WHERE archived_at IS NULL UNION ALL SELECT record_type || ' · ' || l.tag_number, COALESCE(h.diagnosis, 'Health record added'), h.created_at FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.archived_at IS NULL) events ORDER BY created_at DESC LIMIT 5`),
+      db.query(`SELECT title, detail FROM (SELECT 'Registered ' || tag_number title, breed || ' cattle record added' detail, created_at FROM livestock WHERE archived_at IS NULL UNION ALL SELECT record_type || '  -  ' || l.tag_number, COALESCE(h.diagnosis, 'Health record added'), h.created_at FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.archived_at IS NULL) events ORDER BY created_at DESC LIMIT 5`),
       getAttention(),
   ]);
     const count = counts.rows[0];
   return NextResponse.json({
       updatedAt: new Date().toISOString(),
       operations: { overdue: count.critical, dueToday: count.due_today, upcoming: count.upcoming, unscheduled: count.unscheduled },
-      stats: [{ label: "Live cattle", value: count.active, detail: `${count.active} on hand · inventory report`, kind: "cattle", trendPercent: -14, trendDirection: "down" }, { label: "Active clinical cases", value: count.attention, detail: "Unresolved clinical records", kind: "health", trendPercent: 0, trendDirection: "flat" }, { label: "Due this week", value: count.due, detail: "Scheduled care", kind: "due", trendPercent: 0, trendDirection: "flat" }, { label: "Critical alerts", value: count.critical, detail: "Overdue care", kind: "alerts", trendPercent: 0, trendDirection: "flat" }],
+      stats: [{ label: "Live cattle", value: count.active, detail: `${count.active} on hand  -  inventory report`, kind: "cattle", trendPercent: -14, trendDirection: "down" }, { label: "Active clinical cases", value: count.attention, detail: "Unresolved clinical records", kind: "health", trendPercent: 0, trendDirection: "flat" }, { label: "Due this week", value: count.due, detail: "Scheduled care", kind: "due", trendPercent: 0, trendDirection: "flat" }, { label: "Critical alerts", value: count.critical, detail: "Overdue care", kind: "alerts", trendPercent: 0, trendDirection: "flat" }],
       composition: composition.rows,
     population: population.rows,
       alerts: alerts.rows,

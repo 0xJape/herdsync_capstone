@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest, context: Context) {
     const affectedLivestock = [...new Set([current.rows[0].livestock_id, result.rows[0].livestock_id])];
     await client.query(`UPDATE livestock l SET health_status = CASE WHEN EXISTS (SELECT 1 FROM health_records h WHERE h.livestock_id = l.id AND h.archived_at IS NULL AND h.status = 'open' AND h.record_type IN ('illness', 'injury', 'treatment', 'antibiotics', 'anti_inflammatory')) THEN 'fair' WHEN l.health_status = 'fair' THEN 'good' ELSE l.health_status END, updated_at = NOW() WHERE l.id = ANY($1::bigint[])`, [affectedLivestock]);
     const tag = await client.query("SELECT tag_number FROM livestock WHERE id = $1", [result.rows[0].livestock_id]);
-    await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'update', 'health', $2, $3, $4)", [auth.user.id, result.rows[0].id, `${result.rows[0].record_type} · ${tag.rows[0].tag_number}`, `${fields.length} field${fields.length === 1 ? "" : "s"} changed`]);
+    await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'update', 'health', $2, $3, $4)", [auth.user.id, result.rows[0].id, `${result.rows[0].record_type}  -  ${tag.rows[0].tag_number}`, `${fields.length} field${fields.length === 1 ? "" : "s"} changed`]);
     await client.query("COMMIT");
     return NextResponse.json(result.rows[0]);
   } catch (error) {
@@ -77,7 +77,7 @@ export async function DELETE(_request: NextRequest, context: Context) {
     if (!result.rows[0]) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Health record not found" }, { status: 404 }); }
     await client.query(`UPDATE livestock l SET health_status = CASE WHEN EXISTS (SELECT 1 FROM health_records h WHERE h.livestock_id = l.id AND h.archived_at IS NULL AND h.status = 'open' AND h.record_type IN ('illness', 'injury', 'treatment', 'antibiotics', 'anti_inflammatory')) THEN 'fair' WHEN l.health_status = 'fair' THEN 'good' ELSE l.health_status END, updated_at = NOW() WHERE l.id = $1`, [result.rows[0].livestock_id]);
     const tag = await client.query("SELECT tag_number FROM livestock WHERE id = $1", [result.rows[0].livestock_id]);
-    await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'archive', 'health', $2, $3, 'Health record archived')", [auth.user.id, result.rows[0].id, `${result.rows[0].record_type} · ${tag.rows[0].tag_number}`]);
+    await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'archive', 'health', $2, $3, 'Health record archived')", [auth.user.id, result.rows[0].id, `${result.rows[0].record_type}  -  ${tag.rows[0].tag_number}`]);
     await client.query("COMMIT");
     return new NextResponse(null, { status: 204 });
   } catch (error) {

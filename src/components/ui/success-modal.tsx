@@ -1,10 +1,11 @@
 "use client";
 
 import { CheckCircle2, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-export default function SuccessModal({ message, onClose }: { message: string; onClose: () => void }) {
+export default function SuccessModal({ message, onClose, action }: { message: string; onClose: () => void; action?: { href: string; label: string } }) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -22,7 +23,10 @@ export default function SuccessModal({ message, onClose }: { message: string; on
         <span>Completed</span>
         <h2 id="success-modal-title">Success</h2>
         <p id="success-modal-message">{message}</p>
-        <button type="button" className="primary-button" onClick={onClose}>Done</button>
+        <div className="success-modal-actions">
+          {action && <Link href={action.href} className="primary-button" onClick={onClose}>{action.label}</Link>}
+          <button type="button" className={action ? "secondary-button" : "primary-button"} onClick={onClose}>Done</button>
+        </div>
       </section>
     </div>,
     document.body,

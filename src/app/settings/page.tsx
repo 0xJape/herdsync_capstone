@@ -2,6 +2,7 @@
 
 import { Bell, Clock3, FileText, KeyRound, LockKeyhole, Save, Settings, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
+import ReferenceData from "./reference-data";
 
 type Data = { farm_name: string; farm_timezone: string; report_page_size: string; updatedAt: string | null; canManageSystem: boolean; email: string; displayName: string; notify_health_alerts: boolean; notify_activity_digest: boolean };
 const empty: Data = { farm_name: "", farm_timezone: "Asia/Manila", report_page_size: "25", updatedAt: null, canManageSystem: false, email: "", displayName: "", notify_health_alerts: true, notify_activity_digest: true };
@@ -25,6 +26,7 @@ export default function SettingsPage() {
         {data.canManageSystem && <><section className="panel settings-section"><header><span><Clock3 size={19}/></span><div><h3>Date and time</h3><p>Timezone used when presenting operational dates.</p></div></header><label className="field">Farm timezone<select value={data.farm_timezone} onChange={(event) => setData({ ...data, farm_timezone: event.target.value })}><option value="Asia/Manila">Asia/Manila (Philippine time)</option><option value="UTC">UTC</option></select></label></section><section className="panel settings-section"><header><span><FileText size={19}/></span><div><h3>Report defaults</h3><p>Default records shown on future reports.</p></div></header><label className="field">Rows per page<select value={data.report_page_size} onChange={(event) => setData({ ...data, report_page_size: event.target.value })}><option value="10">10 rows</option><option value="25">25 rows</option><option value="50">50 rows</option><option value="100">100 rows</option></select></label></section><aside className="settings-protected"><LockKeyhole size={18}/><div><strong>Clinical rules are protected</strong><p>Vitamin, antibiotic, anti-inflammatory, and deworming intervals remain enforced by health protocols—not general settings.</p></div></aside></>}
         <footer className="settings-actions"><span>{data.canManageSystem && data.updatedAt ? `Farm settings updated ${new Date(data.updatedAt).toLocaleString()}` : "Preferences apply to your account"}</span><button className="primary-button" disabled={saving}><Save size={16}/>{saving ? "Saving…" : "Save settings"}</button></footer>
       </form>
+      <ReferenceData/>
     </>}
   </div>;
 }

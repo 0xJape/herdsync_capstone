@@ -36,6 +36,10 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const livestockIds = Array.isArray(body.livestock_ids) ? [...new Set(body.livestock_ids.map(Number))] : [Number(body.livestock_id)];
   if (!livestockIds.length || livestockIds.some((id) => !Number.isSafeInteger(id) || id < 1)) return NextResponse.json({ error: "Valid livestock is required" }, { status: 400 });
+  const batchDoses = body.batch_doses && typeof body.batch_doses === "object" && !Array.isArray(body.batch_doses) ? body.batch_doses as Record<string, unknown> : null;
+  const batchRoutes = body.batch_routes && typeof body.batch_routes === "object" && !Array.isArray(body.batch_routes) ? body.batch_routes as Record<string, unknown> : null;
+  if (livestockIds.length > 1 && (!batchDoses || livestockIds.some((id) => !text(batchDoses[String(id)], 100, true)))) return NextResponse.json({ error: "A valid dose is required for every selected animal" }, { status: 400 });
+  if (livestockIds.length > 1 && (!batchRoutes || livestockIds.some((id) => !text(batchRoutes[String(id)], 100, true)))) return NextResponse.json({ error: "A route of administration is required for every selected animal" }, { status: 400 });
   if (!text(body.record_type, 100, true)) return NextResponse.json({ error: "Record type is required and must be at most 100 characters" }, { status: 400 });
   if (!date(body.record_date, true) || !date(body.follow_up_date)) return NextResponse.json({ error: "Valid record and follow-up dates are required" }, { status: 400 });
   if (structuredDates.some((field) => !date(body[field]))) return NextResponse.json({ error: "Invalid treatment date" }, { status: 400 });
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
   }
   body = applyHealthProtocol(recordType, String(body.record_date), body);
-  if (administeredCareTypes.has(recordType) && (!text(body.medication_name, 200, true) || !text(body.dose, 100, true) || !text(body.administration_route, 100, true) || !text(body.veterinarian, 150, true))) return NextResponse.json({ error: "Product, dose, route, and administrator are required for administered care" }, { status: 400 });
+  if (administeredCareTypes.has(recordType) && (!text(body.medication_name, 200, true) || (!batchDoses && !text(body.dose, 100, true)) || (!batchRoutes && !text(body.administration_route, 100, true)) || !text(body.veterinarian, 150, true))) return NextResponse.json({ error: "Product, dose, route, and administrator are required for administered care" }, { status: 400 });
   const dateError = validateHealthDates({ recordDate: String(body.record_date), nextDueDate: body.next_due_date as string, followUpDate: body.follow_up_date as string, treatmentEndDate: body.treatment_end_date as string, withdrawalEndDate: body.withdrawal_end_date as string });
   if (dateError) return NextResponse.json({ error: dateError }, { status: 400 });
   const animals = await db.query("SELECT id, tag_number FROM livestock WHERE id = ANY($1::bigint[]) AND archived_at IS NULL", [livestockIds]);
@@ -64,12 +68,14 @@ export async function POST(request: NextRequest) {
     await client.query("BEGIN");
     if (administeredCareTypes.has(recordType)) {
       await client.query(
-        "INSERT INTO treatment_products (treatment_type, name) VALUES ($1, $2) ON CONFLICT (treatment_type, name) DO UPDATE SET active = TRUE",
+        "INSERT INTO treatment_products (treatment_type, name) VALUES ($1, $2) ON CONFLICT DO NOTHING",
         [recordType, String(body.medication_name).trim()],
       );
     }
     const records = [];
     for (const livestockId of livestockIds) {
+      const dose = batchDoses ? String(batchDoses[String(livestockId)]).trim() : body.dose;
+      const administrationRoute = batchRoutes ? String(batchRoutes[String(livestockId)]).trim() : body.administration_route;
       await client.query("SELECT pg_advisory_xact_lock($1)", [livestockId]);
       const duplicate = await client.query(
         `SELECT id FROM health_records
@@ -78,17 +84,17 @@ export async function POST(request: NextRequest) {
            AND COALESCE(administration_route, '') = $6 AND COALESCE(veterinarian, '') = $7
            AND archived_at IS NULL AND created_at >= NOW() - INTERVAL '30 seconds'
          LIMIT 1`,
-        [livestockId, recordType, body.record_date, body.medication_name || "", body.dose || "", body.administration_route || "", body.veterinarian || ""],
+        [livestockId, recordType, body.record_date, body.medication_name || "", dose || "", administrationRoute || "", body.veterinarian || ""],
       );
       if (duplicate.rowCount) throw new Error(`DUPLICATE_HEALTH_RECORD:${duplicate.rows[0].id}`);
-      const values = [livestockId, String(body.record_type).trim(), body.record_date, body.diagnosis || null, body.details || null, body.treatment || null, body.medication_name || null, body.dose || null, body.administration_route || null, body.treatment_start_date || null, body.treatment_end_date || null, body.withdrawal_end_date || null, body.next_due_date || null, body.veterinarian || null, body.follow_up_date || null, body.status, auth.user.id, Number.isSafeInteger(reviewedFromId) ? reviewedFromId : null];
+      const values = [livestockId, String(body.record_type).trim(), body.record_date, body.diagnosis || null, body.details || null, body.treatment || null, body.medication_name || null, dose || null, administrationRoute || null, body.treatment_start_date || null, body.treatment_end_date || null, body.withdrawal_end_date || null, body.next_due_date || null, body.veterinarian || null, body.follow_up_date || null, body.status, auth.user.id, Number.isSafeInteger(reviewedFromId) ? reviewedFromId : null];
       const result = await client.query("INSERT INTO health_records (livestock_id, record_type, record_date, diagnosis, details, treatment, medication_name, dose, administration_route, treatment_start_date, treatment_end_date, withdrawal_end_date, next_due_date, veterinarian, follow_up_date, status, created_by_user_id, source_health_record_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *", values);
       records.push(result.rows[0]);
       if (["illness", "injury", "treatment", "antibiotics", "anti_inflammatory"].includes(recordType) && body.status === "open") {
         await client.query("UPDATE livestock SET health_status = 'fair', updated_at = NOW() WHERE id = $1", [livestockId]);
       }
       const tag = animals.rows.find((animal) => Number(animal.id) === Number(livestockId))?.tag_number;
-      await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'create', 'health', $2, $3, $4)", [auth.user.id, result.rows[0].id, `${recordType} · ${tag}`, livestockIds.length > 1 ? "Batch health treatment added" : "Health record added"]);
+      await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, 'create', 'health', $2, $3, $4)", [auth.user.id, result.rows[0].id, `${recordType}  -  ${tag}`, livestockIds.length > 1 ? "Batch health treatment added" : "Health record added"]);
     }
     await client.query("COMMIT");
     return NextResponse.json(livestockIds.length > 1 ? records : records[0], { status: 201 });

@@ -8,8 +8,9 @@ CREATE TABLE IF NOT EXISTS livestock (
   birth_weight_kg NUMERIC(8,2) CHECK (birth_weight_kg > 0),
   current_weight_kg NUMERIC(8,2) NOT NULL CHECK (current_weight_kg > 0),
   color_markings TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'culled', 'deceased', 'transferred')),
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'culled', 'deceased', 'transferred_out')),
   acquisition_date DATE,
+  acquisition_type VARCHAR(30) NOT NULL DEFAULT 'born_on_farm' CHECK (acquisition_type IN ('born_on_farm','purchased','donated','transferred_in')),
   notes TEXT,
   purchased BOOLEAN NOT NULL DEFAULT FALSE,
   has_calved BOOLEAN NOT NULL DEFAULT FALSE,
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS livestock (
   seller VARCHAR(200),
   seller_contact VARCHAR(200),
   seller_address TEXT,
+  previous_farm VARCHAR(200),
   purchase_price NUMERIC(12,2) CHECK (purchase_price > 0),
   birth_type VARCHAR(50),
   calf_vigor VARCHAR(100),
@@ -85,6 +87,10 @@ CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at);
 ALTER TABLE livestock ADD COLUMN IF NOT EXISTS archive_reason TEXT;
 ALTER TABLE livestock ADD COLUMN IF NOT EXISTS archived_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS livestock_archived_by_idx ON livestock (archived_by_user_id);
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS acquisition_type VARCHAR(30) NOT NULL DEFAULT 'born_on_farm';
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS previous_farm VARCHAR(200);
+ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_acquisition_type_check;
+ALTER TABLE livestock ADD CONSTRAINT livestock_acquisition_type_check CHECK (acquisition_type IN ('born_on_farm','purchased','donated','transferred_in'));
 
 CREATE TABLE IF NOT EXISTS health_records (
   id BIGSERIAL PRIMARY KEY,
@@ -127,6 +133,20 @@ CREATE TABLE IF NOT EXISTS treatment_products (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (treatment_type, name)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS treatment_products_type_name_lower_idx
+  ON treatment_products (treatment_type, LOWER(name));
+
+CREATE TABLE IF NOT EXISTS cattle_breeds (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS cattle_breeds_name_lower_idx ON cattle_breeds (LOWER(name));
+INSERT INTO cattle_breeds (name) VALUES ('Brahman'), ('Angus'), ('Holstein'), ('Native/Carabao'), ('Crossbreed') ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS weight_records (
   id BIGSERIAL PRIMARY KEY,

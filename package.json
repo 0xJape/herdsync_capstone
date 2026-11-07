@@ -12,7 +12,11 @@
     "create-admin": "node scripts/create-admin.mjs",
     "seed-demo": "node scripts/seed-demo.mjs",
     "seed-lineage": "node --env-file=.env.local scripts/seed-lineage.mjs",
-    "seed-pregnancies": "node --env-file=.env.local scripts/seed-pregnancies.mjs"
+    "seed-pregnancies": "node --env-file=.env.local scripts/seed-pregnancies.mjs",
+    "seed-breeding": "node --env-file=.env.local scripts/seed-breeding-records.mjs",
+    "seed-health-due": "node --env-file=.env.local scripts/seed-health-due.mjs",
+    "reset-seed-farm-workflows": "node --env-file=.env.local scripts/reset-seed-farm-workflows.mjs",
+    "seed-eligible-dams": "node --env-file=.env.local scripts/seed-eligible-dams.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",

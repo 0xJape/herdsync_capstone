@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   HeartPulse,
   Pencil,
   Plus,
@@ -21,6 +22,7 @@ import HealthTreatmentModal from "@/components/health-treatment-modal";
 import { useCurrentRole } from "@/lib/use-current-role";
 
 type Animal = { id: number; tag_number: string; name: string | null };
+type BatchDose = { dose: string; unit: string; route: string };
 type HealthRecord = {
   id: number;
   livestock_id: number;
@@ -45,6 +47,7 @@ type HealthRecord = {
 type PregnancyAlert = { id: number; livestock_id: number; tag_number: string; livestock_name: string | null; next_checkup_date: string; expected_calving_date: string };
 const dateOnly = (value: string) => value.slice(0, 10);
 const today = () => new Date().toISOString().slice(0, 10);
+const titleCase = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("en-PH", {
     month: "short",
@@ -109,20 +112,52 @@ export default function HealthPage() {
     [editing, setEditing] = useState<number | null>(null),
     [showForm, setShowForm] = useState(false);
   const [batch, setBatch] = useState(false),
-    [batchIds, setBatchIds] = useState<string[]>([]);
+    [batchIds, setBatchIds] = useState<string[]>([]),
+    [batchDoses, setBatchDoses] = useState<Record<string, BatchDose>>({});
   const [livestockSearch, setLivestockSearch] = useState("");
   const [search, setSearch] = useState(""),
     [status, setStatus] = useState("all"),
+    [recordType, setRecordType] = useState("all"),
+    [dateFrom, setDateFrom] = useState(""),
+    [dateTo, setDateTo] = useState(""),
+    [datePreset, setDatePreset] = useState("all"),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [careView, setCareView] = useState<"schedule" | "restrictions">("schedule");
+  const [careFilter, setCareFilter] = useState("all");
+  const [carePage, setCarePage] = useState(1);
   const [success, setSuccess] = useState("");
+    const applyDatePreset = (preset: string) => {
+      const end = today();
+      setDatePreset(preset);
+      if (preset === "all") { setDateFrom(""); setDateTo(""); }
+      else if (preset === "today") { setDateFrom(end); setDateTo(end); }
+      else if (preset === "7-days") { setDateFrom(addDays(end, -6)); setDateTo(end); }
+      else if (preset === "30-days") { setDateFrom(addDays(end, -29)); setDateTo(end); }
+      setPage(1);
+    };
+  const [showGuide, setShowGuide] = useState(false), [guideStep, setGuideStep] = useState(0);
   const [linkedRecords, setLinkedRecords] = useState<HealthRecord[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   });
+  const healthGuide = [
+    { selector: ".health-page-header", title: "Health workspace", text: "Start a health record here for checkups, vaccines, medicines, vitamins, and deworming." },
+    { selector: ".health-page > .health-records-panel:first-of-type", title: "Priority care worklist", text: "Review care due this week and switch to medicine restrictions requiring monitoring." },
+    { selector: ".health-calendar-panel", title: "Care calendar", text: "Navigate scheduled care by month and select a date to inspect its events." },
+    { selector: ".health-agenda", title: "Upcoming agenda", text: "See nearest follow-ups, treatment dates, pregnancy checks, and expected calving dates." },
+    { selector: ".health-page > .health-records-panel:last-of-type", title: "Health records", text: "Search, filter, review, edit, or archive recorded health history." },
+  ];
+  useEffect(() => {
+    if (!showGuide) return;
+    const target = document.querySelector(healthGuide[guideStep]?.selector);
+    document.querySelectorAll(".health-tour-highlight").forEach((node) => node.classList.remove("health-tour-highlight"));
+    if (target) { target.classList.add("health-tour-highlight"); target.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    return () => target?.classList.remove("health-tour-highlight");
+  }, [guideStep, showGuide]);
   const load = useCallback(async () => {
     setLoading(true);
     const response = await fetch(
@@ -156,22 +191,35 @@ export default function HealthPage() {
     const recordTypes = ["checkup", "vaccination", "treatment", "vitamins", "dewormer", "antibiotics", "anti_inflammatory"];
     if (!livestockId || !action || !["record", ...recordTypes].includes(action)) return;
     const recordType = action === "record" ? "checkup" : action;
-    setEditing(null);
-    setBatch(false);
-    setForm({ ...empty, livestock_id: livestockId, record_type: recordType });
-    setLivestockSearch("");
-    setShowForm(true);
+    queueMicrotask(() => {
+      setEditing(null);
+      setBatch(false);
+      setForm({ ...empty, livestock_id: livestockId, record_type: recordType });
+      setLivestockSearch("");
+      setShowForm(true);
+    });
     fetch(`/api/health?livestock_id=${encodeURIComponent(livestockId)}`, { cache: "no-store" })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: { records: HealthRecord[] }) => setLinkedRecords(data.records))
       .catch(() => setError("Could not load selected cattle health restrictions"));
   }, [searchParams]);
-  useEffect(() => { load().catch((cause) => { setError(cause instanceof Error ? cause.message : "Could not load health records"); setLoading(false); }); }, [load]);
+  useEffect(() => { queueMicrotask(() => load().catch((cause) => { setError(cause instanceof Error ? cause.message : "Could not load health records"); setLoading(false); })); }, [load]);
   const visibleRecords = useMemo(
     () =>
-      records.filter((record) => status === "all" || record.status === status),
-    [records, status],
+      records.filter((record) =>
+        (status === "all" || record.status === status) &&
+        (recordType === "all" || record.record_type === recordType) &&
+        (!dateFrom || dateOnly(record.record_date) >= dateFrom) &&
+        (!dateTo || dateOnly(record.record_date) <= dateTo),
+      ).sort((a, b) => {
+        const end = addDays(today(), 7);
+        const priority = (record: HealthRecord) => [record.follow_up_date, record.next_due_date]
+          .some((date) => !!date && dateOnly(date) >= today() && dateOnly(date) <= end) ? 0 : 1;
+        return priority(a) - priority(b) || dateOnly(b.record_date).localeCompare(dateOnly(a.record_date));
+      }),
+    [records, status, recordType, dateFrom, dateTo],
   );
+  const recordTypes = ["all", "checkup", "vaccination", "vitamins", "antibiotics", "anti_inflammatory", "dewormer"];
   const filteredAnimals = livestockSearch.trim()
     ? animals.filter((animal) =>
         String(animal.id) === form.livestock_id ||
@@ -267,12 +315,23 @@ export default function HealthPage() {
     .filter((event) => event.date >= today())
     .slice(0, 5);
   const weekEnd = addDays(today(), 7);
-  const urgentWeek = scheduled
-    .filter((event) => event.date >= today() && event.date <= weekEnd && (event.record.status === "open" || event.label !== "Follow-up"))
-    .slice(0, 4);
+  const weekEvents = scheduled.filter(
+    (event) => event.date >= today() && event.date <= weekEnd && (event.record.status === "open" || event.label !== "Follow-up"),
+  );
+  const urgentWeek = weekEvents.filter((event) => careFilter === "all" || event.label === careFilter);
+  const careFilterOptions = [...new Set(weekEvents.map((event) => event.label))];
+  const filteredRestrictions = activeRestrictions.filter((record) => careFilter === "all" || (careFilter === "withdrawal" ? !!record.withdrawal_end_date && dateOnly(record.withdrawal_end_date) >= today() : record.record_type === "antibiotics"));
+  const careItems = careView === "schedule" ? urgentWeek : filteredRestrictions;
+  const carePageCount = Math.max(1, Math.ceil(careItems.length / 5));
+  const currentCarePage = Math.min(carePage, carePageCount);
+  const pagedCareItems = careItems.slice((currentCarePage - 1) * 5, currentCarePage * 5);
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
+    if (batch && !editing && batchIds.some((id) => !batchDoses[id]?.dose || Number(batchDoses[id].dose) <= 0 || !batchDoses[id].route)) {
+      setError("Enter a valid dosage and route of administration for every selected animal.");
+      return;
+    }
     const wasEditing = editing !== null;
     const savedCount = batch && !editing ? batchIds.length : 1;
     const nextDue = form.repeat_days
@@ -281,6 +340,8 @@ export default function HealthPage() {
     const payload = {
       ...form,
       livestock_ids: batch && !editing ? batchIds : undefined,
+      batch_doses: batch && !editing ? Object.fromEntries(batchIds.map((id) => [id, `${batchDoses[id].dose} ${batchDoses[id].unit}`])) : undefined,
+      batch_routes: batch && !editing ? Object.fromEntries(batchIds.map((id) => [id, batchDoses[id].route])) : undefined,
       treatment: form.medication_name,
       dose: `${form.dose} ${form.dosage_unit}`.trim(),
       treatment_start_date: form.record_date,
@@ -300,6 +361,7 @@ export default function HealthPage() {
     setForm(empty);
     setBatch(false);
     setBatchIds([]);
+    setBatchDoses({});
     setEditing(null);
     setShowForm(false);
     await load();
@@ -384,7 +446,7 @@ export default function HealthPage() {
             history.
           </p>
         </div>
-        <button
+        <div className="health-header-actions"><button type="button" className="secondary-button" onClick={() => { setGuideStep(0); setShowGuide(true); }}><CircleHelp size={16}/> Health page guide</button><button
           type="button"
           className="primary-button"
           onClick={() => {
@@ -394,69 +456,14 @@ export default function HealthPage() {
           }}
         >
           <Plus size={16} /> Add health record
-        </button>
+        </button></div>
       </header>
+      {showGuide && <aside className="breeding-walkthrough health-walkthrough" aria-label="Health page guide"><div><span className="cattle-eyebrow">Step {guideStep + 1} of {healthGuide.length}</span><h3>{healthGuide[guideStep].title}</h3><button type="button" className="breeding-walkthrough-close" onClick={() => setShowGuide(false)}>Exit guide</button></div><p>{healthGuide[guideStep].text}</p><footer><button type="button" className="secondary-button" disabled={guideStep === 0} onClick={() => setGuideStep((step) => step - 1)}>Back</button><button type="button" className="primary-button" onClick={() => guideStep === healthGuide.length - 1 ? setShowGuide(false) : setGuideStep((step) => step + 1)}>{guideStep === healthGuide.length - 1 ? "Finish" : "Next"}</button></footer></aside>}
       {error && (
         <p role="alert" className="cattle-error">
           {error}
         </p>
       )}
-      <section className="panel health-week">
-        <header>
-          <div className="health-week-title">
-            <div aria-hidden="true">
-              <CalendarDays size={18} />
-            </div>
-            <div>
-              <span className="cattle-eyebrow">Priority schedule</span>
-              <h2>Needs attention this week</h2>
-              <p>
-                Overdue and upcoming care requiring action within seven days.
-              </p>
-            </div>
-          </div>
-          <span>{urgentWeek.length} scheduled</span>
-        </header>
-        {urgentWeek.length ? (
-          <div className="health-overview">
-            {urgentWeek.map((event) => {
-              const isOverdue = event.date < today(),
-                isToday = event.date === today();
-              return (
-                <Link
-                  key={`${event.record.id}-${event.label}`}
-                  href={`/livestock/${event.record.livestock_id}`}
-                  className={`${careClass(event.record, event.label)}${isOverdue ? " urgent" : ""}`}
-                >
-                  <div>
-                    <span>
-                      {isOverdue
-                        ? "Overdue"
-                        : isToday
-                          ? "Due today"
-                          : event.label}
-                    </span>
-                    <strong>{event.record.tag_number}</strong>
-                    <small>
-                      {event.record.record_type.replaceAll("_", " ")} ·{" "}
-                      {formatDate(event.date)}
-                    </small>
-                  </div>
-                  <CalendarDays size={17} />
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="health-week-clear">
-            <HeartPulse size={18} />
-            <div>
-              <strong>No urgent care scheduled</strong>
-              <span>No open follow-ups due within seven days.</span>
-            </div>
-          </div>
-        )}
-      </section>
       <div className="health-workspace">
         <section className="panel health-calendar-panel">
           <header>
@@ -544,7 +551,7 @@ export default function HealthPage() {
                       <Link
                         key={`${event.record.id}-${event.label}`}
                         className={careClass(event.record, event.label)}
-                        href={`/livestock/${event.record.livestock_id}`}
+                        href={`/livestock/${event.record.livestock_id}?returnTo=%2Fhealth`}
                         onClick={(clickEvent) => clickEvent.stopPropagation()}
                         title={`${event.record.tag_number}: ${event.label}`}
                       >
@@ -592,7 +599,7 @@ export default function HealthPage() {
                   {selectedDateEvents.map((event) => (
                     <Link
                       key={`${event.record.id}-${event.label}`}
-                      href={`/livestock/${event.record.livestock_id}`}
+                      href={`/livestock/${event.record.livestock_id}?returnTo=%2Fhealth`}
                       className={careClass(event.record, event.label)}
                     >
                       <i />
@@ -621,7 +628,7 @@ export default function HealthPage() {
               <Link
                 key={`${event.record.id}-${event.label}`}
                 className={careClass(event.record, event.label)}
-                href={`/livestock/${event.record.livestock_id}`}
+                href={`/livestock/${event.record.livestock_id}?returnTo=%2Fhealth`}
               >
                 <time dateTime={event.date}>
                   <strong>{new Date(event.date).getUTCDate()}</strong>
@@ -630,7 +637,7 @@ export default function HealthPage() {
                 <div>
                   <strong>{event.record.tag_number}</strong>
                   <span>
-                    {event.label} ·{" "}
+                    {event.label}  - {" "}
                     {event.record.record_type.replaceAll("_", " ")}
                   </span>
                 </div>
@@ -645,33 +652,13 @@ export default function HealthPage() {
           )}
         </aside>
       </div>
-      {activeRestrictions.length > 0 && (
-        <section className="panel treatment-notice" aria-label="Medicine restrictions">
-          <HeartPulse size={18} />
-          <div>
-            <strong>Medicine restrictions and checkups</strong>
-            <p>{activeRestrictions.length} cattle require antimicrobial or withdrawal monitoring. No slaughter, meat, or milk clearance while withdrawal is active.</p>
-            <div className="health-overview">
-              {activeRestrictions.map((record) => (
-                <Link key={record.id} href={`/livestock/${record.livestock_id}`} className="care-treatment">
-                  <div>
-                    <span>{record.withdrawal_end_date && dateOnly(record.withdrawal_end_date) >= today() ? "Withdrawal active" : "AMR stewardship"}</span>
-                    <strong>{record.tag_number}</strong>
-                    <small>{record.medication_name || record.treatment || "Antimicrobial treatment"}{record.follow_up_date ? ` · Checkup ${formatDate(record.follow_up_date)}` : ""}{record.withdrawal_end_date ? ` · Restricted through ${formatDate(record.withdrawal_end_date)}` : ""}</small>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
       <section className="panel health-records-panel">
         <header>
-          <div>
-            <span className="cattle-eyebrow">Clinical history</span>
-            <h2>
-              <Stethoscope size={18} /> Health records
-            </h2>
+          <div className="health-records-heading">
+            <span className="cattle-eyebrow">Health records</span>
+            <h2><Stethoscope size={18} /> Clinical history</h2>
+            <p>Track every checkup, preventive treatment, medication, and follow-up in one place.</p>
+            <span className="health-record-count">{visibleRecords.length} record{visibleRecords.length === 1 ? "" : "s"}</span>
           </div>
           <div className="health-record-tools">
             <label>
@@ -683,6 +670,9 @@ export default function HealthPage() {
                 onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               />
             </label>
+            <label className="health-care-filter"><span>Care type</span><select aria-label="Filter care type" value={recordType} onChange={(event) => { setRecordType(event.target.value); setPage(1); }}>
+              {recordTypes.map((type) => <option key={type} value={type}>{type === "all" ? "All care types" : titleCase(type)}</option>)}
+            </select></label>
             <select
               aria-label="Filter status"
               value={status}
@@ -692,39 +682,42 @@ export default function HealthPage() {
               <option value="open">Active care</option>
               <option value="resolved">Completed</option>
             </select>
+            <label className="health-date-filter"><span>Date</span><select aria-label="Filter records by date" value={datePreset} onChange={(event) => applyDatePreset(event.target.value)}><option value="all">All dates</option><option value="today">Today</option><option value="7-days">Last 7 days</option><option value="30-days">Last 30 days</option><option value="custom">Custom range</option></select></label>
+            {datePreset === "custom" && <><label className="health-date-filter"><span>From</span><input aria-label="Filter records from date" type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => { setDatePreset("custom"); setDateFrom(event.target.value); setPage(1); }} /></label>
+            <label className="health-date-filter"><span>To</span><input aria-label="Filter records to date" type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDatePreset("custom"); setDateTo(event.target.value); setPage(1); }} /></label></>}
+            {(dateFrom || dateTo) && <button type="button" className="secondary-button health-clear-filter" onClick={() => applyDatePreset("all")}>Clear dates</button>}
           </div>
         </header>
         {loading ? (
           <p className="muted">Loading health records…</p>
         ) : visibleRecords.length ? (
           <>
-            <div className="health-record-table">
-              {pagedRecords.map((record) => (
-                <article key={record.id}>
-                  <div className="health-record-animal">
-                    <Link href={`/livestock/${record.livestock_id}`}>
+            <div className="clinical-history-table" role="region" aria-label="Clinical history table" tabIndex={0}>
+              <table>
+                <caption className="sr-only">Clinical health records, newest first</caption>
+                <thead><tr><th scope="col">Cattle</th><th scope="col">Record</th><th scope="col">Clinical notes</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+                <tbody>{pagedRecords.map((record) => (
+                <tr key={record.id}>
+                  <td className="clinical-animal">
+                    <Link href={`/livestock/${record.livestock_id}?returnTo=%2Fhealth`} className="care-treatment" data-tooltip="Open cattle profile">
                       {record.tag_number}
                     </Link>
                     <span>{record.livestock_name || "Unnamed animal"}</span>
-                  </div>
-                  <div>
-                    <strong>{record.record_type.replaceAll("_", " ")}</strong>
-                    <span>
-                      {record.diagnosis || record.details || "Routine care"}
-                    </span>
-                    <span>Added by {record.added_by || "Unknown"}</span>
-                  </div>
-                  <time dateTime={record.record_date}>
+                  </td>
+                  <td><span className={`clinical-record-type health-type-${record.record_type}`}>{titleCase(record.record_type)}</span></td>
+                  <td className="clinical-notes"><strong>{record.diagnosis || record.details || "Routine care"}</strong><span>Added by {record.added_by || "Unknown"}</span></td>
+                  <td><time dateTime={record.record_date}>
                     {formatDate(record.record_date)}
-                  </time>
-                  <span className={`record-status ${record.status}`}>
-                    {record.status === "open" ? "Active" : "Completed"}
-                  </span>
-                  <div className="health-row-actions">
+                  </time></td>
+                  <td><span className={`record-status ${record.status}`}>
+                    <span data-tooltip={record.status === "open" ? "Active care still needs monitoring or follow-up." : "Completed care needs no further action."}>{record.status === "open" ? "Active" : "Completed"}</span>
+                  </span></td>
+                  <td><div className="health-row-actions">
                     <button
                       type="button"
                       className="icon-button"
                       aria-label={`Edit ${record.tag_number} health record`}
+                      data-tooltip="Edit this health record"
                       onClick={() => edit(record)}
                     >
                       <Pencil size={15} />
@@ -733,13 +726,14 @@ export default function HealthPage() {
                       type="button"
                       className="icon-button danger"
                       aria-label={`Archive ${record.tag_number} health record`}
+                      data-tooltip="Archive this health record"
                       onClick={() => archive(record)}
                     >
                       <Trash2 size={15} />
                     </button>
-                  </div>
-                </article>
-              ))}
+                  </div></td>
+                </tr>
+              ))}</tbody></table>
             </div>
             {pageCount > 1 && (
               <nav
@@ -850,7 +844,7 @@ export default function HealthPage() {
                     "injury",
                     "illness",
                   ].map((type) => (
-                    <option key={type}>{type}</option>
+                    <option key={type} value={type}>{titleCase(type)}</option>
                   ))}
                 </select>
               </label>
@@ -968,12 +962,13 @@ export default function HealthPage() {
                     onChange={(event) => {
                       setBatch(event.target.checked);
                       setBatchIds([]);
+                      setBatchDoses({});
                     }}
                   />
                   <span>
                     <strong>Enable Batch Recording (Multiple Animals)</strong>
                     <small>
-                      Record same treatment for multiple animals at once
+                      Record one treatment with an individual dosage for each animal
                     </small>
                   </span>
                 </label>
@@ -1006,8 +1001,8 @@ export default function HealthPage() {
                     <p>No sale, slaughter, meat, or milk clearance while this restriction remains active.</p>
                     <small>
                       {selectedRestriction?.medication_name || selectedRestriction?.treatment || "Antimicrobial treatment"}
-                      {selectedRestriction?.follow_up_date ? ` · Checkup ${formatDate(selectedRestriction?.follow_up_date ?? "")}` : ""}
-                      {selectedRestriction?.withdrawal_end_date ? ` · Restricted through ${formatDate(selectedRestriction?.withdrawal_end_date ?? "")}` : ""}
+                      {selectedRestriction?.follow_up_date ? `  -  Checkup ${formatDate(selectedRestriction?.follow_up_date ?? "")}` : ""}
+                      {selectedRestriction?.withdrawal_end_date ? `  -  Restricted through ${formatDate(selectedRestriction?.withdrawal_end_date ?? "")}` : ""}
                     </small>
                   </div>
                 )}
@@ -1018,28 +1013,24 @@ export default function HealthPage() {
                   aria-label="Matching livestock"
                 >
                   {filteredAnimals.length ? (
-                    filteredAnimals.slice(0, 8).map((animal) =>
-                      batch && !editing ? (
-                        <label key={animal.id}>
-                          <input
-                            type="checkbox"
-                            checked={batchIds.includes(String(animal.id))}
-                            onChange={(event) =>
-                              setBatchIds((current) =>
-                                event.target.checked
-                                  ? [...current, String(animal.id)]
-                                  : current.filter(
-                                      (id) => id !== String(animal.id),
-                                    ),
-                              )
+                    (batch && !editing ? filteredAnimals : filteredAnimals.slice(0, 8)).map((animal) =>
+                      batch && !editing ? (() => {
+                        const id = String(animal.id);
+                        const selected = batchIds.includes(id);
+                        const dosage = batchDoses[id] ?? { dose: "", unit: form.dosage_unit, route: form.administration_route };
+                        return <div className={`batch-animal-row ${selected ? "batch-animal-selected" : ""}`} key={animal.id}>
+                          <label><input type="checkbox" checked={selected} onChange={(event) => setBatchIds((current) => {
+                            if (event.target.checked) {
+                              setBatchDoses((doses) => ({ ...doses, [id]: dosage }));
+                              return [...current, id];
                             }
-                          />
-                          <span>
-                            {animal.tag_number}
-                            {animal.name ? ` — ${animal.name}` : ""}
-                          </span>
-                        </label>
-                      ) : (
+                            setBatchDoses((doses) => { const next = { ...doses }; delete next[id]; return next; });
+                            return current.filter((currentId) => currentId !== id);
+                          })}/><span><strong>{animal.tag_number}</strong>{animal.name && <small>{animal.name}</small>}</span></label>
+                          <span className="dose-field"><input disabled={!selected} required={selected} aria-label={`Dosage for ${animal.tag_number}`} placeholder="Dose" type="number" min="0.01" step="any" value={dosage.dose} onChange={(event) => setBatchDoses((current) => ({ ...current, [id]: { ...dosage, dose: event.target.value } }))}/><select disabled={!selected} aria-label={`Dosage unit for ${animal.tag_number}`} value={dosage.unit} onChange={(event) => setBatchDoses((current) => ({ ...current, [id]: { ...dosage, unit: event.target.value } }))}>{["ml", "cc", "mg", "g", "IU"].map((unit) => <option key={unit}>{unit}</option>)}</select></span>
+                          <select disabled={!selected} required={selected} aria-label={`Route of administration for ${animal.tag_number}`} value={dosage.route} onChange={(event) => setBatchDoses((current) => ({ ...current, [id]: { ...dosage, route: event.target.value } }))}><option value="">Select route</option>{[["Intramuscular (IM)", "IM"], ["Subcutaneous (SC)", "SC"], ["Intravenous (IV)", "IV"], ["Oral", "Oral"], ["Topical", "Topical"], ["Nasal", "Nasal"]].map(([label, value]) => <option key={value} value={value}>{label}</option>)}</select>
+                        </div>;
+                      })() : (
                         <button
                           key={animal.id}
                           type="button"
@@ -1079,28 +1070,21 @@ export default function HealthPage() {
               </label>
               <label className="field">
                 Treatment Name *
-                <input
-                  className="treatment-name-input"
+                <select
                   required
-                  list="treatment-name-suggestions"
                   disabled={!form.record_type}
-                  placeholder="Type or select treatment name"
                   value={form.medication_name}
-                  onChange={(event) =>
-                    field("medication_name", event.target.value)
-                  }
-                />
-                <datalist id="treatment-name-suggestions">
+                  onChange={(event) => field("medication_name", event.target.value)}
+                >
+                  <option value="">Select treatment name</option>
+                  {form.medication_name && !(treatmentNames[form.record_type] ?? []).includes(form.medication_name) && <option value={form.medication_name}>{form.medication_name}</option>}
                   {(treatmentNames[form.record_type] ?? []).map((name) => (
-                    <option key={name} value={name} />
+                    <option key={name}>{name}</option>
                   ))}
-                </datalist>
-                <small>
-                  Current product inventory. Entering another approved product
-                  adds it to this list.
-                </small>
+                </select>
+                <small>Current approved product inventory.</small>
               </label>
-              <label className="field">
+              {(!batch || editing) && <label className="field">
                 Dosage *
                 <span className="dose-field">
                   <input
@@ -1123,8 +1107,8 @@ export default function HealthPage() {
                     ))}
                   </select>
                 </span>
-              </label>
-              <label className="field">
+              </label>}
+              {(!batch || editing) && <label className="field">
                 Route of Administration *
                 <select
                   required
@@ -1147,7 +1131,7 @@ export default function HealthPage() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </label>}
               <label className="field">
                 Date Administered *
                 <input
@@ -1174,11 +1158,11 @@ export default function HealthPage() {
               {form.record_type && <section className={`treatment-protocol-card health-form-wide protocol-${form.record_type}`} role="status">
                 <div className="treatment-protocol-icon"><CalendarDays size={20} /></div>
                 <div className="treatment-protocol-copy">
-                  {form.record_type === "vaccination" && <><span>Vaccine schedule</span><strong>Case-by-case scheduling</strong><p>No automatic next dose. Schedule only when approved guidance requires it.</p></>}
-                  {form.record_type === "vitamins" && <><span>Vitamin schedule</span><strong>Automatic scheduling enabled</strong><p>Repeats every 2 weeks with reminder 7 days before.</p><small>Next treatment: {formatDate(form.next_due_date)}</small></>}
-                  {form.record_type === "antibiotics" && <><span>AMR protocol</span><strong>Withdrawal and monitoring active</strong><p>No automatic repeat. No sale, slaughter, meat, or milk clearance during withdrawal.</p><small>Checkup: {formatDate(form.follow_up_date)} · Withdrawal ends: {formatDate(form.withdrawal_end_date)}</small></>}
-                  {form.record_type === "anti_inflammatory" && <><span>Pain management</span><strong>Monitoring protocol active</strong><p>Re-administer only after authorized review if pain persists.</p><small>Checkup: {formatDate(form.follow_up_date)} · Withdrawal ends: {formatDate(form.withdrawal_end_date)}</small></>}
-                  {form.record_type === "dewormer" && <><span>Deworming schedule</span><strong>Automatic scheduling enabled</strong><p>Defaults to 3 months, adjustable up to 6 months, with reminder 14 days before.</p><small>Next treatment: {formatDate(form.next_due_date)}</small></>}
+                  {form.record_type === "vaccination" && <><span>Vaccination Protocol</span><strong>Case-by-Case Scheduling</strong><p>No automatic next dose. Schedule only when approved guidance requires it.</p></>}
+                  {form.record_type === "vitamins" && <><span>Vitamin Protocol</span><strong>Automatic Scheduling Enabled</strong><p>Repeats every 2 weeks with reminder 7 days before.</p><small>Next Treatment: {formatDate(form.next_due_date)}</small></>}
+                  {form.record_type === "antibiotics" && <><span>Antibiotic Protocol</span><strong>Withdrawal and Monitoring Active</strong><p>No automatic repeat. No sale, slaughter, meat, or milk clearance during withdrawal.</p><small>Required Checkup: {formatDate(form.follow_up_date)}  -  Withdrawal Ends: {formatDate(form.withdrawal_end_date)}</small></>}
+                  {form.record_type === "anti_inflammatory" && <><span>Anti-Inflammatory Protocol</span><strong>Monitoring Protocol Active</strong><p>Re-administer only after authorized review if pain persists.</p><small>Required Checkup: {formatDate(form.follow_up_date)}  -  Withdrawal Ends: {formatDate(form.withdrawal_end_date)}</small></>}
+                  {form.record_type === "dewormer" && <><span>Deworming Protocol</span><strong>Automatic Scheduling Enabled</strong><p>Defaults to 3 months, adjustable up to 6 months, with reminder 14 days before.</p><small>Next Treatment: {formatDate(form.next_due_date)}</small></>}
                 </div>
               </section>}
               {(form.record_type === "vitamins" || form.record_type === "dewormer") && <label className="field">
@@ -1194,7 +1178,7 @@ export default function HealthPage() {
                   }
                 />
               </label>}
-              {(form.record_type === "antibiotics" || form.record_type === "anti_inflammatory") && <><label className="field">Withdrawal Ends<input type="date" min={form.record_date} value={form.withdrawal_end_date} onChange={(event) => field("withdrawal_end_date", event.target.value)}/></label><label className="field">Required Checkup<input type="date" min={form.record_date} value={form.follow_up_date} onChange={(event) => field("follow_up_date", event.target.value)}/></label></>}
+              {(form.record_type === "antibiotics" || form.record_type === "anti_inflammatory") && <><label className="field">Withdrawal Ends<input type="date" min={form.record_date} value={form.withdrawal_end_date} onChange={(event) => field("withdrawal_end_date", event.target.value)}/><small data-tooltip="Until this date, do not clear animal for sale, slaughter, meat, or milk use.">Product withdrawal restriction end date.</small></label><label className="field">Required Checkup<input type="date" min={form.record_date} value={form.follow_up_date} onChange={(event) => field("follow_up_date", event.target.value)}/><small data-tooltip="Clinical review required before treatment is closed or repeated.">Monitoring follow-up date.</small></label></>}
               <label className="field health-form-wide">
                 Notes / Observations
                 <textarea

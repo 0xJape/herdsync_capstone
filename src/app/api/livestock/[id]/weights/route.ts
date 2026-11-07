@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, context: Context) {
     const result = await client.query("INSERT INTO weight_records (livestock_id, measured_at, weight_kg, notes, recorded_by, created_by_user_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *", [id, body.measured_at, weight, body.notes || null, body.recorded_by || null, auth.user.id]);
     await client.query("UPDATE livestock SET current_weight_kg = $1, updated_at = NOW() WHERE id = $2", [weight, id]);
     await client.query("COMMIT");
-    await logActivity(auth.user.id, "create", "weight", result.rows[0].id, `Weight · ${animal.rows[0].tag_number}`, `${weight} kg recorded`);
+    await logActivity(auth.user.id, "create", "weight", result.rows[0].id, `Weight  -  ${animal.rows[0].tag_number}`, `${weight} kg recorded`);
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }

@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: "Livestock management for MSU-GenSan Animal Science Farm",
   applicationName: "HerdSync",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "HerdSync", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "HerdSync", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
   icons: {
     icon: "/herdsync_logo.png",
     shortcut: "/herdsync_logo.png",
@@ -16,7 +17,12 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = { themeColor: "#1f7a4d" };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1f7a4d",
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -24,6 +30,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       lang="en"
       className="h-full antialiased"
     >
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="HerdSync" />
+      </head>
       <body className="min-h-full flex flex-col">{children}<PwaInstall /></body>
     </html>
   );
