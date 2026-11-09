@@ -439,8 +439,7 @@ export default function HealthPage() {
     <main className="health-page">
       <header className="health-page-header">
         <div>
-          <span className="cattle-eyebrow">Herd care center</span>
-          <h1>Health & medical care</h1>
+          <h1>Health &amp; medical care</h1>
           <p>
             Monitor active cases, follow-ups, vaccinations, and treatment
             history.

@@ -6,14 +6,8 @@ const schedule = `
   SELECT h.id, h.livestock_id, h.record_type, h.follow_up_date due_date, 'follow_up' alert_type, 'Clinical follow-up' title
   FROM health_records h WHERE h.archived_at IS NULL AND h.status = 'open' AND h.follow_up_date IS NOT NULL
   UNION ALL
-  SELECT h.id, h.livestock_id, h.record_type, h.next_due_date, 'next_due', 'Next care due'
+  SELECT h.id, h.livestock_id, h.record_type, h.next_due_date, 'next_due', CASE h.record_type WHEN 'vitamins' THEN 'Vitamin care due' WHEN 'vaccination' THEN 'Vaccination due' ELSE 'Deworming due' END
   FROM health_records h WHERE h.archived_at IS NULL AND h.record_type IN ('vaccination','vitamins','dewormer') AND h.next_due_date IS NOT NULL
-  UNION ALL
-  SELECT h.id, h.livestock_id, h.record_type, h.next_due_date - 7, 'vitamin_reminder', 'Vitamin reminder'
-  FROM health_records h WHERE h.archived_at IS NULL AND h.record_type = 'vitamins' AND h.next_due_date IS NOT NULL
-  UNION ALL
-  SELECT h.id, h.livestock_id, h.record_type, h.next_due_date - 14, 'deworming_reminder', 'Deworming reminder'
-  FROM health_records h WHERE h.archived_at IS NULL AND h.record_type = 'dewormer' AND h.next_due_date IS NOT NULL
   UNION ALL
   SELECT h.id, h.livestock_id, h.record_type, h.withdrawal_end_date, 'withdrawal_end', 'Withdrawal ends'
   FROM health_records h WHERE h.archived_at IS NULL AND h.withdrawal_end_date >= CURRENT_DATE`;

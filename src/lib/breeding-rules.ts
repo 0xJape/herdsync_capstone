@@ -25,11 +25,11 @@ export function daysBetween(startDate: string, endDate: string) {
 }
 
 export function gestationStage(daysPregnant: number) {
-  if (daysPregnant >= 283) return { key: "calving", label: "Calving", guidance: "Observe labor and provide assistance when necessary." };
-  if (daysPregnant >= 269) return { key: "pre_calving", label: "Near calving", guidance: "Prepare a clean, safe, accessible parturition area and monitor signs of labor." };
-  if (daysPregnant >= 191) return { key: "late", label: "Pregnant – Late", guidance: "Monitor body condition, nutrition, health, and signs of impending labor." };
-  if (daysPregnant >= 96) return { key: "mid", label: "Pregnant – Mid", guidance: "Monitor rapid fetal growth, nutrition, body condition, and overall health." };
-  return { key: "early", label: "Pregnant – Early", guidance: "Confirm pregnancy near day 90 and monitor early fetal development." };
+  if (daysPregnant >= 283) return { key: "calving", label: "In Labor", guidance: "Observe labor and provide assistance when necessary." };
+  if (daysPregnant >= 269) return { key: "pre_calving", label: "Near Calving", guidance: "Prepare a clean, safe, accessible parturition area and monitor signs of labor." };
+  if (daysPregnant >= 191) return { key: "late", label: "Late Stage (Third Trimester)", guidance: "Monitor body condition, nutrition, health, and signs of impending labor." };
+  if (daysPregnant >= 96) return { key: "mid", label: "Mid Stage (Second Trimester)", guidance: "Monitor rapid fetal growth, nutrition, body condition, and overall health." };
+  return { key: "early", label: "Early Stage (First Trimester)", guidance: "Confirm pregnancy near day 90 and monitor early fetal development." };
 }
 
 export function dateString(value: string | Date) {

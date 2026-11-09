@@ -61,8 +61,9 @@ export async function POST(request: NextRequest) {
   if (administeredCareTypes.has(recordType) && (!text(body.medication_name, 200, true) || (!batchDoses && !text(body.dose, 100, true)) || (!batchRoutes && !text(body.administration_route, 100, true)) || !text(body.veterinarian, 150, true))) return NextResponse.json({ error: "Product, dose, route, and administrator are required for administered care" }, { status: 400 });
   const dateError = validateHealthDates({ recordDate: String(body.record_date), nextDueDate: body.next_due_date as string, followUpDate: body.follow_up_date as string, treatmentEndDate: body.treatment_end_date as string, withdrawalEndDate: body.withdrawal_end_date as string });
   if (dateError) return NextResponse.json({ error: dateError }, { status: 400 });
-  const animals = await db.query("SELECT id, tag_number FROM livestock WHERE id = ANY($1::bigint[]) AND archived_at IS NULL", [livestockIds]);
+  const animals = await db.query("SELECT id, tag_number, status FROM livestock WHERE id = ANY($1::bigint[]) AND archived_at IS NULL", [livestockIds]);
   if (animals.rowCount !== livestockIds.length) return NextResponse.json({ error: "One or more livestock were not found" }, { status: 404 });
+  if (animals.rows.some((animal) => animal.status !== "active")) return NextResponse.json({ error: "Inactive cattle cannot receive new health records" }, { status: 409 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");

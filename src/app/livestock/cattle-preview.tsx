@@ -97,7 +97,7 @@ export default function CattlePreview({ marking, category }: { marking: string; 
   const color = /^#[0-9a-f]{6}$/i.test(marking) ? marking : "#f1eee5";
   const modelPath = modelPaths[category] ?? "/models/adult-cow-textured.glb";
   return <div className="cattle-preview" aria-label={`Cattle preview for ${category || "new cattle"}`}>
-    <Canvas shadows="percentage" camera={{ position: [0, 0.15, 3.4], fov: 35 }} dpr={[1, 1.5]}>
+    <Canvas fallback={<div className="cattle-preview-fallback" role="status">3D preview unavailable. Reload to retry.</div>} shadows="percentage" camera={{ position: [0, 0.15, 3.4], fov: 35 }} dpr={[1, 1.5]}>
       <ambientLight intensity={1.7} />
       <directionalLight position={[3, 4, 2]} intensity={2.2} castShadow shadow-mapSize={[1024, 1024]} />
       <GrassGround />

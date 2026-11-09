@@ -79,7 +79,7 @@ const listSql: Record<ListName, { rows: string; count: string }> = {
     count: `SELECT COUNT(*)::int total FROM calf_care_plans c JOIN livestock l ON l.id = c.livestock_id WHERE c.status = 'pending' AND l.archived_at IS NULL AND $1::text IS NOT NULL`,
   },
   calvingHistory: {
-    rows: `SELECT e.id, e.pregnancy_confirmation_id pregnancy_id, e.birth_date, e.calving_difficulty, e.twins, e.notes, d.id dam_id, d.tag_number dam_tag,
+    rows: `SELECT e.id, e.pregnancy_confirmation_id pregnancy_id, e.birth_date, e.calving_difficulty, e.twins, e.notes, d.id dam_id, d.tag_number dam_tag, d.name dam_name,
       COUNT(o.id)::int calf_count, STRING_AGG(COALESCE(o.name, o.outcome), ', ' ORDER BY o.birth_order) calves
       FROM calving_events e JOIN livestock d ON d.id = e.dam_id LEFT JOIN calving_outcomes o ON o.calving_event_id = e.id
       WHERE d.archived_at IS NULL AND ($1 = '' OR d.tag_number ILIKE '%' || $1 || '%')

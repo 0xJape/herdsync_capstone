@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 
 export default function SuccessModal({ message, onClose, action }: { message: string; onClose: () => void; action?: { href: string; label: string } }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const cleanMessage = message.replace(/Ã¢â‚¬â„¢s/g, "");
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -22,7 +23,7 @@ export default function SuccessModal({ message, onClose, action }: { message: st
         <div className="success-modal-icon" aria-hidden="true"><CheckCircle2 size={30}/></div>
         <span>Completed</span>
         <h2 id="success-modal-title">Success</h2>
-        <p id="success-modal-message">{message}</p>
+        <p id="success-modal-message">{cleanMessage}</p>
         <div className="success-modal-actions">
           {action && <Link href={action.href} className="primary-button" onClick={onClose}>{action.label}</Link>}
           <button type="button" className={action ? "secondary-button" : "primary-button"} onClick={onClose}>Done</button>

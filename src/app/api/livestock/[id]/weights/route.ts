@@ -23,8 +23,9 @@ export async function POST(request: NextRequest, context: Context) {
   if (!validDate(body.measured_at)) return NextResponse.json({ error: "Valid measurement date is required" }, { status: 400 });
   if (!Number.isFinite(weight) || weight <= 0) return NextResponse.json({ error: "Weight must be greater than 0 kg" }, { status: 400 });
   if (!validText(body.notes, 10000) || !validText(body.recorded_by, 150)) return NextResponse.json({ error: "Text field is too long" }, { status: 400 });
-  const animal = await db.query("SELECT tag_number FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
+  const animal = await db.query("SELECT tag_number, status FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
   if (!animal.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
+  if (animal.rows[0].status !== "active") return NextResponse.json({ error: "Inactive cattle cannot receive new records" }, { status: 409 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");

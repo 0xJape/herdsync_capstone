@@ -1,9 +1,11 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CalendarClock, CalendarDays, Check, CircleHelp, LockKeyhole, Printer, X } from "lucide-react";
 import Link from "next/link";
 import SuccessModal from "@/components/ui/success-modal";
+import { safeReturnPath } from "@/lib/return-path";
 
 type RecordItem = { id: number; livestock_id: number; tag_number: string; livestock_name: string | null; dam_breed: string; sire_tag_number: string | null; sire_name: string | null; sire_breed: string | null; event_type: string; event_date: string; pregnancy_status: string | null; expected_calving_date: string | null; pregnancy_check_due_date: string; details: string | null; performed_by: string | null; added_by: string | null };
 type Related = { id: number; event_type: string; event_date: string; pregnancy_status: string | null; source_service_id: number | null; details: string | null; performed_by: string | null };
@@ -16,6 +18,8 @@ const daysUntil = (value: string) => Math.ceil((Date.parse(`${value}T00:00:00Z`)
 
 export default function BreedingRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const returnTo = safeReturnPath(searchParams.get("returnTo"), "/breeding"); // Use originating route in review header back link
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<{ message: string; href: string } | null>(null);
@@ -41,7 +45,7 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
     finally { setSaving(false); }
   }
 
-  if (error && !data) return <div className="breeding-record-page"><Link href="/breeding" className="secondary-button"><ArrowLeft size={16}/> Back to breeding</Link><p role="alert" className="cattle-error">{error}</p></div>;
+  if (error && !data) return <div className="breeding-record-page"><Link href={returnTo} className="secondary-button"><ArrowLeft size={16}/> Back to breeding</Link><p role="alert" className="cattle-error">{error}</p></div>;
   if (!data) return <p>Loading breeding record…</p>;
   const { record, related } = data;
   const serviceIndex = related.findIndex((item) => item.id === record.id);
@@ -54,7 +58,7 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
 
   return <div className="breeding-record-page">
     {success && <SuccessModal message={success.message} onClose={() => setSuccess(null)} action={{ href: success.href, label: success.href.startsWith("/pregnancy/") ? "View pregnancy profile" : "View breeding records" }}/>} 
-    <header className="breeding-detail-header"><div><Link href="/breeding" className="breeding-back"><ArrowLeft size={16}/> Breeding records</Link><span className="cattle-eyebrow">Breeding session #{record.id}</span><h1>{record.tag_number} × {record.sire_tag_number || "Unregistered sire"}</h1><div className="breeding-detail-meta"><strong>{labels[record.event_type] || record.event_type}</strong><span>{formatDate(record.event_date)}</span><span>{record.performed_by || record.added_by || "Handler not recorded"}</span></div></div><div className="breeding-detail-actions"><span className={resolved ? "breeding-resolved" : due ? "breeding-alert" : "breeding-waiting"}>{resolved ? <><Check size={13}/> {outcomeLabel}</> : due ? <><AlertTriangle size={13}/> Check due</> : "Awaiting check"}</span><button type="button" className="secondary-button print-record-button" onClick={() => window.print()}><Printer size={16}/> Print / Save PDF</button></div></header>
+    <header className="breeding-detail-header"><div><Link href={returnTo} className="breeding-back"><ArrowLeft size={16}/> Breeding records</Link><span className="cattle-eyebrow">Breeding session #{record.id}</span><h1>{record.tag_number} × {record.sire_tag_number || "Unregistered sire"}</h1><div className="breeding-detail-meta"><strong>{labels[record.event_type] || record.event_type}</strong><span>{formatDate(record.event_date)}</span><span>{record.performed_by || record.added_by || "Handler not recorded"}</span></div></div><div className="breeding-detail-actions"><span className={resolved ? "breeding-resolved" : due ? "breeding-alert" : "breeding-waiting"}>{resolved ? <><Check size={13}/> {outcomeLabel}</> : due ? <><AlertTriangle size={13}/> Check due</> : "Awaiting check"}</span><button type="button" className="secondary-button print-record-button" onClick={() => window.print()}><Printer size={16}/> Print / Save PDF</button></div></header>
 
     {error && <p role="alert" className="cattle-error">{error}</p>}
     <section className="breeding-session-summary"><header><h2>Breeding pair</h2><Help text="Dam and sire recorded for this breeding session."/></header><div className="cattle-table-wrap"><table className="cattle-table breeding-pair-table"><thead><tr><th>Role</th><th>Cattle ID</th><th>Name</th><th>Breed</th><th><span className="sr-only">Profile</span></th></tr></thead><tbody><tr><td><span className="breeding-role dam">Dam</span></td><td><strong>{record.tag_number}</strong></td><td>{record.livestock_name || "Unnamed"}</td><td>{record.dam_breed}</td><td><Link href={`/livestock/${record.livestock_id}`} data-tooltip="Open dam cattle profile">View profile</Link></td></tr><tr><td><span className="breeding-role sire">Sire</span></td><td><strong>{record.sire_tag_number || "Not recorded"}</strong></td><td>{record.sire_name || "Unnamed"}</td><td>{record.sire_breed || "Not recorded"}</td><td>—</td></tr></tbody></table></div></section>
@@ -63,7 +67,7 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
 
     <section className="breeding-detail-section breeding-record-table-section"><header><span className="cattle-eyebrow">Record details</span><h2>{record.event_type === "artificial_insemination" ? "Insemination details" : "Service details"}</h2></header><div className="cattle-table-wrap"><table className="cattle-table breeding-details-table"><tbody>{Object.entries(details).map(([key, value]) => <tr key={key}><th scope="row">{key}</th><td>{value}</td></tr>)}<tr><th scope="row">Handler / observer</th><td>{record.performed_by || "Not recorded"}</td></tr><tr><th scope="row">Added by</th><td>{record.added_by || "Not recorded"}</td></tr></tbody></table></div></section>
 
-    <section className="breeding-detail-section breeding-record-table-section"><header><span className="cattle-eyebrow">Reproductive history</span><h2>Related records <Help text="Newest reproductive events for this dam. Current marks this session."/></h2></header><div className="cattle-table-wrap"><table className="cattle-table breeding-history-table"><thead><tr><th>Date</th><th>Event</th><th>Recorded by</th><th>Status</th></tr></thead><tbody>{related.map((item) => { const status = item.id === record.id ? "current" : item.pregnancy_status; return <tr key={item.id} className={item.id === record.id ? "current" : ""}><td><time>{formatDate(item.event_date)}</time></td><td><strong>{labels[item.event_type] || item.event_type}</strong></td><td>{item.performed_by || <span className="breeding-table-muted">Not recorded</span>}</td><td>{status ? <span className={`breeding-history-status ${status}`}>{status.replaceAll("_", " ")}</span> : <span className="breeding-table-muted">Not applicable</span>}</td></tr>; })}</tbody></table></div></section>
+    <section className="breeding-detail-section breeding-record-table-section"><header><span className="cattle-eyebrow">Reproductive history</span><h2>Related records <Help text="Newest breeding events for this dam. Current marks this session."/></h2></header><div className="cattle-table-wrap"><table className="cattle-table breeding-history-table"><thead><tr><th>Date</th><th>Event</th><th>Recorded by</th><th>Status</th></tr></thead><tbody>{related.filter((item) => item.event_type !== "heat_observed").map((item) => { const status = item.id === record.id ? "current" : item.pregnancy_status; return <tr key={item.id} className={item.id === record.id ? "current" : ""}><td><time>{formatDate(item.event_date)}</time></td><td><strong>{labels[item.event_type] || item.event_type}</strong></td><td>{item.performed_by || <span className="breeding-table-muted">Not recorded</span>}</td><td>{status ? <span className={`breeding-history-status ${status}`}>{status.replaceAll("_", " ")}</span> : <span className="breeding-table-muted">Not applicable</span>}</td></tr>; })}</tbody></table></div></section>
   </div>;
 }
 

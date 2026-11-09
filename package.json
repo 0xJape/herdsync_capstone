@@ -16,11 +16,13 @@
     "seed-breeding": "node --env-file=.env.local scripts/seed-breeding-records.mjs",
     "seed-health-due": "node --env-file=.env.local scripts/seed-health-due.mjs",
     "reset-seed-farm-workflows": "node --env-file=.env.local scripts/reset-seed-farm-workflows.mjs",
+    "reset-seed-realistic-herd": "node --env-file=.env.local scripts/reset-seed-realistic-herd.mjs",
     "seed-eligible-dams": "node --env-file=.env.local scripts/seed-eligible-dams.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
+    "chart.js": "^4.6.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^13.2.0",
@@ -28,6 +30,7 @@
     "next": "16.3.4",
     "pg": "^8.23.0",
     "react": "19.2.8",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.8",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.7.0",

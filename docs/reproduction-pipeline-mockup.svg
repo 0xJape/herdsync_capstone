@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#173829" flood-opacity=".18"/></filter>
+    <style>
+      .ui{font-family:Inter,Segoe UI,Arial,sans-serif}.small{font-size:13px}.label{font-size:12px;font-weight:700;letter-spacing:.08em}.body{font-size:14px}.title{font-size:26px;font-weight:750}.h2{font-size:17px;font-weight:750}.bold{font-weight:700}.muted{fill:#64766e}.dark{fill:#173d2c}.white{fill:white}.line{stroke:#d8e4dc;stroke-width:1}.green{fill:#2f7d57}.blue{fill:#326fb5}
+    </style>
+  </defs>
+  <rect width="1440" height="960" fill="#f4f7f4"/>
+  <g class="ui">
+    <!-- Sidebar -->
+    <rect width="218" height="960" fill="#123c2b"/>
+    <circle cx="38" cy="42" r="20" fill="#e9c766"/><path d="M28 45c10-16 25-14 22-1-3 12-16 16-22 1z" fill="#276447"/>
+    <text x="68" y="49" font-size="20" font-weight="750" fill="white">HerdSync</text>
+    <text x="24" y="102" class="label" fill="#91b4a3">HERD CARE</text>
+    <g fill="#d7e7de" font-size="14">
+      <text x="54" y="142">Health</text><text x="54" y="187">Breeding</text><text x="54" y="232">Pregnancy</text>
+    </g>
+    <rect x="12" y="254" width="194" height="44" rx="9" fill="#e8f2ec"/>
+    <circle cx="34" cy="276" r="9" fill="none" stroke="#28684a" stroke-width="2"/><path d="M34 267v18M25 276h18" stroke="#28684a" stroke-width="2"/>
+    <text x="54" y="281" font-size="14" font-weight="700" fill="#1c573d">Reproduction</text>
+    <!-- Header -->
+    <rect x="218" width="1222" height="72" fill="white"/><line x1="218" y1="72" x2="1440" y2="72" class="line"/>
+    <text x="252" y="45" font-size="20" font-weight="720" class="dark">Reproduction</text>
+    <text x="1240" y="43" class="body muted">Nov 10, 2026</text><circle cx="1374" cy="36" r="18" fill="#dcebe2"/><text x="1368" y="42" class="bold dark">A</text>
+    <!-- Content header -->
+    <text x="252" y="122" class="title dark">Reproduction pipeline</text>
+    <text x="252" y="148" class="body muted">Follow each animal from breeding through pregnancy confirmation and calving.</text>
+    <!-- Stats -->
+    <g>
+      <rect x="252" y="174" width="216" height="76" rx="12" fill="white" stroke="#d8e4dc"/><text x="270" y="200" class="label muted">AWAITING CHECK</text><text x="270" y="232" font-size="25" font-weight="750" class="dark">8</text>
+      <rect x="480" y="174" width="216" height="76" rx="12" fill="white" stroke="#d8e4dc"/><text x="498" y="200" class="label muted">CHECKS DUE</text><text x="498" y="232" font-size="25" font-weight="750" fill="#b15e1e">3</text>
+      <rect x="708" y="174" width="216" height="76" rx="12" fill="white" stroke="#d8e4dc"/><text x="726" y="200" class="label muted">ACTIVE PREGNANCIES</text><text x="726" y="232" font-size="25" font-weight="750" class="green">12</text>
+      <rect x="936" y="174" width="216" height="76" rx="12" fill="white" stroke="#d8e4dc"/><text x="954" y="200" class="label muted">NEAR CALVING</text><text x="954" y="232" font-size="25" font-weight="750" fill="#b15e1e">2</text>
+    </g>
+    <!-- Tables -->
+    <g>
+      <rect x="252" y="278" width="558" height="480" rx="14" fill="white" stroke="#d8e4dc"/>
+      <text x="274" y="312" class="h2 dark">Breeding &amp; pregnancy checks</text><text x="274" y="334" class="small muted">Animals waiting for pregnancy outcome</text>
+      <rect x="274" y="354" width="514" height="42" rx="7" fill="#f3f7f4"/><text x="288" y="380" class="label muted">CATTLE</text><text x="420" y="380" class="label muted">CHECK DUE</text><text x="535" y="380" class="label muted">STATUS</text><text x="700" y="380" class="label muted">ACTION</text>
+      <g class="body">
+        <line x1="274" y1="454" x2="788" y2="454" class="line"/><text x="288" y="425" class="bold dark">MSU-104</text><text x="288" y="444" class="small muted">Bella</text><text x="420" y="432" class="dark">Nov 10</text><rect x="535" y="414" width="90" height="27" rx="14" fill="#fff0dc"/><text x="550" y="432" class="small" fill="#9b5819">Check due</text><rect x="680" y="411" width="92" height="32" rx="7" fill="#2f7d57"/><text x="692" y="432" class="small white bold">Review check</text>
+        <line x1="274" y1="516" x2="788" y2="516" class="line"/><text x="288" y="487" class="bold dark">MSU-108</text><text x="288" y="506" class="small muted">Maya</text><text x="420" y="494" class="dark">Nov 15</text><rect x="535" y="476" width="99" height="27" rx="14" fill="#e7f0fb"/><text x="549" y="494" class="small" fill="#326cae">Monitoring</text><text x="696" y="494" class="small bold green">Open record</text>
+        <line x1="274" y1="578" x2="788" y2="578" class="line"/><text x="288" y="549" class="bold dark">MSU-116</text><text x="288" y="568" class="small muted">Luna</text><text x="420" y="556" class="dark">Nov 22</text><rect x="535" y="538" width="116" height="27" rx="14" fill="#edf1ee"/><text x="549" y="556" class="small muted">Awaiting check</text><text x="696" y="556" class="small bold green">Open record</text>
+      </g>
+      <rect x="830" y="278" width="558" height="480" rx="14" fill="white" stroke="#d8e4dc"/>
+      <text x="852" y="312" class="h2 dark">Active pregnancies</text><text x="852" y="334" class="small muted">Confirmed animals moved from breeding checks</text>
+      <rect x="852" y="354" width="514" height="42" rx="7" fill="#f3f7f4"/><text x="866" y="380" class="label muted">CATTLE</text><text x="998" y="380" class="label muted">STAGE</text><text x="1110" y="380" class="label muted">EXPECTED</text><text x="1260" y="380" class="label muted">ACTION</text>
+      <g class="body">
+        <rect x="846" y="402" width="526" height="60" rx="8" fill="#edf8f1" stroke="#86c6a2" stroke-width="2"/><text x="866" y="425" class="bold dark">MSU-112</text><text x="866" y="444" class="small muted">Daisy</text><rect x="998" y="414" width="91" height="27" rx="14" fill="#e6effb"/><text x="1011" y="432" class="small" fill="#326cae">Early stage</text><text x="1110" y="432" class="dark">Aug 17</text><text x="1258" y="432" class="small bold green">Open profile</text>
+        <line x1="852" y1="516" x2="1366" y2="516" class="line"/><text x="866" y="487" class="bold dark">MSU-101</text><text x="866" y="506" class="small muted">Rosie</text><rect x="998" y="476" width="82" height="27" rx="14" fill="#eee8fa"/><text x="1013" y="494" class="small" fill="#6a4b9f">Mid stage</text><text x="1110" y="494" class="dark">May 06</text><text x="1258" y="494" class="small bold green">Open profile</text>
+      </g>
+      <!-- transfer arrow -->
+      <path d="M790 627 C820 627 822 627 850 627" fill="none" stroke="#2f7d57" stroke-width="3" stroke-dasharray="6 5"/><path d="M842 620l10 7-10 7" fill="none" stroke="#2f7d57" stroke-width="3"/>
+      <rect x="692" y="650" width="342" height="46" rx="23" fill="#e8f4ed"/><text x="720" y="678" class="small bold green">Confirmed pregnancy moves here automatically</text>
+    </g>
+    <!-- Overlay -->
+    <rect x="218" y="72" width="1222" height="888" fill="#0d241a" opacity=".28"/>
+    <!-- Modal -->
+    <g filter="url(#shadow)">
+      <rect x="480" y="150" width="700" height="650" rx="18" fill="white"/>
+      <text x="518" y="192" class="label green">PREGNANCY CHECK</text><text x="518" y="227" font-size="23" font-weight="750" class="dark">Review MSU-104 · Bella</text><text x="1128" y="194" font-size="25" class="muted">×</text>
+      <line x1="518" y1="250" x2="1142" y2="250" class="line"/>
+      <rect x="518" y="274" width="624" height="88" rx="10" fill="#f3f7f4"/>
+      <text x="538" y="298" class="label muted">BREEDING CONNECTION</text><text x="538" y="326" class="body dark">Natural breeding · Sep 26, 2026</text><text x="538" y="347" class="small muted">Sire MSU-S17 · Pregnancy check due Nov 10, 2026</text>
+      <text x="518" y="401" class="small bold dark">Check date</text><rect x="518" y="411" width="292" height="42" rx="7" fill="white" stroke="#bdcdc3"/><text x="534" y="437" class="body dark">Nov 10, 2026</text>
+      <text x="830" y="401" class="small bold dark">Examiner</text><rect x="830" y="411" width="312" height="42" rx="7" fill="white" stroke="#bdcdc3"/><text x="846" y="437" class="body muted">Dr. Santos</text>
+      <text x="518" y="489" class="small bold dark">Findings and notes</text><rect x="518" y="499" width="624" height="82" rx="7" fill="white" stroke="#bdcdc3"/><text x="534" y="526" class="body muted">Record examination findings…</text>
+      <text x="518" y="619" class="small bold dark">Pregnancy outcome</text>
+      <rect x="518" y="635" width="188" height="46" rx="8" fill="#2f7d57"/><text x="544" y="663" class="body white bold">Confirm Pregnancy</text>
+      <rect x="718" y="635" width="160" height="46" rx="8" fill="white" stroke="#bdcdc3"/><text x="744" y="663" class="body dark bold">Keep Monitoring</text>
+      <rect x="890" y="635" width="144" height="46" rx="8" fill="white" stroke="#d59d9d"/><text x="914" y="663" class="body" fill="#a13737" font-weight="700">Not Pregnant</text>
+      <line x1="518" y1="718" x2="1142" y2="718" class="line"/>
+      <text x="518" y="754" class="small muted">Confirmation closes this check and creates an active pregnancy.</text>
+      <rect x="1036" y="731" width="106" height="40" rx="8" fill="#173d2c"/><text x="1069" y="756" class="body white bold">Save</text>
+    </g>
+    <!-- callout -->
+    <rect x="1018" y="817" width="370" height="74" rx="12" fill="#173d2c"/>
+    <circle cx="1046" cy="854" r="14" fill="#5db181"/><path d="M1039 854l5 5 9-11" fill="none" stroke="white" stroke-width="2.5"/>
+    <text x="1070" y="847" class="small white bold">After confirmation</text><text x="1070" y="870" class="small" fill="#dceae2">Row moves left → right and highlights briefly.</text>
+  </g>
+</svg>

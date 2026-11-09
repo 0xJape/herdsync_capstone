@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-const defaults = { farm_name: "MSU-GenSan Animal Science Farm", farm_timezone: "Asia/Manila", report_page_size: "25" };
+const defaultLogo = "/letterHeader_logo/MSUGensan_logo.png";
+const defaults = { farm_name: "MSU-GenSan Animal Science Farm", farm_timezone: "Asia/Manila", report_page_size: "25", report_left_logo: defaultLogo, report_right_logo: defaultLogo };
 
 export async function GET() {
   const auth = await requireApiUser();
   if ("response" in auth) return auth.response;
+  const visibleKeys = auth.user.role === "veterinarian" ? Object.keys(defaults) : ["report_left_logo", "report_right_logo"];
   const [settings, preferences] = await Promise.all([
-    auth.user.role === "veterinarian" ? db.query("SELECT key, value, updated_at AS \"updatedAt\" FROM system_settings WHERE key = ANY($1)", [Object.keys(defaults)]) : Promise.resolve({ rows: [] }),
+    db.query("SELECT key, value, updated_at AS \"updatedAt\" FROM system_settings WHERE key = ANY($1)", [visibleKeys]),
     db.query("SELECT notify_health_alerts, notify_activity_digest FROM users WHERE id = $1", [auth.user.id]),
   ]);
   return NextResponse.json({ ...defaults, ...Object.fromEntries(settings.rows.map((row) => [row.key, row.value])), updatedAt: settings.rows.reduce((latest, row) => row.updatedAt > latest ? row.updatedAt : latest, null), canManageSystem: auth.user.role === "veterinarian", email: auth.user.email, displayName: auth.user.display_name, notify_health_alerts: preferences.rows[0]?.notify_health_alerts ?? true, notify_activity_digest: preferences.rows[0]?.notify_activity_digest ?? true }, { headers: { "Cache-Control": "no-store" } });

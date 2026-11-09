@@ -12,13 +12,43 @@ const getId = async ({ params }: Context) => { const id = Number((await params).
 export async function GET(_request: NextRequest, context: Context) {
   const auth = await requireRole("veterinarian", "farm_aide", "faculty"); if ("response" in auth) return auth.response;
   const id = await getId(context); if (!id) return NextResponse.json({ error: "Invalid livestock ID" }, { status: 400 });
-  const result = await db.query("SELECT b.*, s.tag_number sire_tag_number, u.display_name added_by FROM breeding_records b LEFT JOIN livestock s ON s.id = b.sire_id LEFT JOIN users u ON u.id = b.created_by_user_id WHERE b.livestock_id = $1 AND b.archived_at IS NULL ORDER BY b.event_date DESC, b.id DESC", [id]);
+  const result = await db.query(`
+    SELECT b.*,
+      s.tag_number sire_tag_number,
+      s.name sire_name,
+      u.display_name added_by,
+      COALESCE(outcome.pregnancy_status, b.pregnancy_status) pregnancy_status,
+      CASE
+        WHEN outcome.id IS NOT NULL THEN 'resolved'
+        WHEN b.event_type IN ('natural_service', 'artificial_insemination')
+          AND b.event_date + 45 <= CURRENT_DATE THEN 'due'
+        WHEN b.event_type IN ('natural_service', 'artificial_insemination') THEN 'pending'
+        ELSE NULL
+      END workflow_status
+    FROM breeding_records b
+    LEFT JOIN livestock s ON s.id = b.sire_id
+    LEFT JOIN users u ON u.id = b.created_by_user_id
+    LEFT JOIN LATERAL (
+      SELECT result.id, result.pregnancy_status
+      FROM breeding_records result
+      WHERE result.source_service_id = b.id
+        AND result.event_type IN ('pregnancy_confirmed', 'pregnancy_negative')
+        AND result.archived_at IS NULL
+      ORDER BY result.event_date DESC, result.id DESC
+      LIMIT 1
+    ) outcome ON TRUE
+    WHERE b.livestock_id = $1 AND b.archived_at IS NULL
+    ORDER BY b.event_date DESC, b.id DESC
+  `, [id]);
   return NextResponse.json(result.rows);
 }
 
 export async function POST(request: NextRequest, context: Context) {
   const auth = await requireRole("veterinarian", "farm_aide"); if ("response" in auth) return auth.response;
   const id = await getId(context); if (!id) return NextResponse.json({ error: "Invalid livestock ID" }, { status: 400 });
+  const active = await db.query("SELECT status FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
+  if (!active.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
+  if (active.rows[0].status !== "active") return NextResponse.json({ error: "Inactive cattle cannot receive new breeding records" }, { status: 409 });
   let body: Record<string, unknown>; try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   if (!validText(body.event_type, 100, true)) return NextResponse.json({ error: "Event type is required and must be at most 100 characters" }, { status: 400 });
   if (!validDate(body.event_date, true) || !validDate(body.expected_calving_date)) return NextResponse.json({ error: "Invalid event or expected calving date" }, { status: 400 });
@@ -36,6 +66,10 @@ export async function POST(request: NextRequest, context: Context) {
   const animal = await db.query("SELECT tag_number, sex, birth_date, health_status, body_condition_score, sire_id, dam_id FROM livestock WHERE id = $1 AND status = 'active' AND archived_at IS NULL", [id]);
   if (!animal.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
   if (animal.rows[0].sex !== "female") return NextResponse.json({ error: "This event requires female cattle" }, { status: 409 });
+  if (eventType === "heat_observed") {
+    const recentHeat = await db.query("SELECT 1 FROM breeding_records WHERE livestock_id = $1 AND event_type = 'heat_observed' AND archived_at IS NULL AND event_date >= $2::date - 21 ORDER BY event_date DESC, id DESC LIMIT 1", [id, eventDate]);
+    if (recentHeat.rowCount) return NextResponse.json({ error: "Heat is already active for this cattle. Record another heat observation after the current 21-day cycle ends." }, { status: 409 });
+  }
   if (["natural_service", "artificial_insemination"].includes(eventType)) { const eligibility = breedingEligibility(dateString(animal.rows[0].birth_date), eventDate, animal.rows[0].health_status, animal.rows[0].body_condition_score == null ? null : Number(animal.rows[0].body_condition_score)); if (!eligibility.eligible) return NextResponse.json({ error: `Dam is not breeding-ready: ${eligibility.reasons.join(", ")}` }, { status: 409 }); const latestCycleEvent = await db.query("SELECT event_type FROM breeding_records WHERE livestock_id = $1 AND event_type IN ('heat_observed','natural_service','artificial_insemination') AND archived_at IS NULL ORDER BY event_date DESC, id DESC LIMIT 1", [id]); if (latestCycleEvent.rows[0]?.event_type !== "heat_observed") return NextResponse.json({ error: "Record heat observation before selecting this dam for breeding" }, { status: 409 }); }
   if (sireId === id) return NextResponse.json({ error: "Animal cannot be its own sire" }, { status: 409 });
   if (sireId !== null) { const sire = await db.query("SELECT birth_date, health_status, body_condition_score, sire_id, dam_id FROM livestock WHERE id = $1 AND sex = 'male' AND status = 'active' AND archived_at IS NULL", [sireId]); if (!sire.rowCount) return NextResponse.json({ error: "Sire not found" }, { status: 404 }); const eligibility = breedingEligibility(dateString(sire.rows[0].birth_date), eventDate, sire.rows[0].health_status, sire.rows[0].body_condition_score == null ? null : Number(sire.rows[0].body_condition_score)); if (!eligibility.eligible) return NextResponse.json({ error: `Sire is not breeding-ready: ${eligibility.reasons.join(", ")}` }, { status: 409 }); const damParents = [animal.rows[0].sire_id, animal.rows[0].dam_id].filter(Boolean); const sireParents = [sire.rows[0].sire_id, sire.rows[0].dam_id].filter(Boolean); if (damParents.includes(sireId) || sireParents.includes(Number(id)) || damParents.some((parentId) => sireParents.includes(parentId))) return NextResponse.json({ error: "Sire is not compatible with this dam because they are directly related or share a parent" }, { status: 409 }); }

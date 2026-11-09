@@ -25,8 +25,9 @@ export async function POST(request: NextRequest, context: Context) {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const animal = await client.query("SELECT tag_number FROM livestock WHERE id = $1 AND archived_at IS NULL FOR UPDATE", [id]);
+    const animal = await client.query("SELECT tag_number, status FROM livestock WHERE id = $1 AND archived_at IS NULL FOR UPDATE", [id]);
     if (!animal.rows[0]) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Livestock not found" }, { status: 404 }); }
+    if (animal.rows[0].status !== "active") { await client.query("ROLLBACK"); return NextResponse.json({ error: "Inactive cattle cannot receive new records" }, { status: 409 }); }
     const result = await client.query("INSERT INTO body_condition_records (livestock_id, measured_at, score, notes, recorded_by, created_by_user_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *", [id, body.measured_at, score, body.notes || null, body.recorded_by || null, auth.user.id]);
     await client.query("UPDATE livestock SET body_condition_score = $1, updated_at = NOW() WHERE id = $2", [score, id]);
     await client.query("COMMIT");
