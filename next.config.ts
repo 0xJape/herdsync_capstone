@@ -8,6 +8,12 @@ const scriptSrc = process.env.NODE_ENV === "production"
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.61", "herdsync.dotenvlabs.me"],
   poweredByHeader: false,
+  async redirects() {
+    return [
+      { source: "/breeding", destination: "/reproduction?tab=breeding", permanent: false },
+      { source: "/pregnancy", destination: "/reproduction?tab=pregnancy", permanent: false },
+    ];
+  },
   async headers() {
     return [{
       source: "/(.*)",

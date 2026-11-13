@@ -33,4 +33,4 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/api/:path*", "/dashboard/:path*", "/livestock/:path*", "/health/:path*", "/breeding/:path*", "/pregnancy/:path*", "/reproduction/:path*", "/alerts/:path*", "/activity/:path*", "/reports/:path*", "/settings/:path*", "/manage-users/:path*"] };
+export const config = { matcher: ["/api/:path*", "/dashboard/:path*", "/livestock/:path*", "/health/:path*", "/breeding/:path*", "/pregnancy/:path*", "/reproduction/:path*", "/activity/:path*", "/reports/:path*", "/settings/:path*", "/manage-users/:path*"] };

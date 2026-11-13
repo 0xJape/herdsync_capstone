@@ -10,6 +10,11 @@ try {
   const dams = [
     ["2026-041", "Daisy", "Holstein", 3],
     ["2026-042", "Mabel", "Jersey", 3],
+    ["2026-043", "Willow", "Angus", 3],
+    ["2026-044", "Hazel", "Hereford", 4],
+    ["2026-045", "Rosie", "Simmental", 3],
+    ["2026-046", "Pearl", "Brown Swiss", 4],
+    ["2026-047", "Clover", "Charolais", 3],
   ];
 
   for (const [tag, name, breed, score] of dams) {
@@ -34,7 +39,7 @@ try {
         AND event_date = CURRENT_DATE AND archived_at IS NULL)`, [id, `${marker} · active heat observed`]);
   }
   await pool.query("COMMIT");
-  console.log("Eligible demo dams ready: 2026-041 Daisy, 2026-042 Mabel.");
+  console.log(`Eligible demo dams ready: ${dams.map(([tag, name]) => `${tag} ${name}`).join(", ")}.`);
 } catch (error) {
   await pool.query("ROLLBACK");
   throw error;

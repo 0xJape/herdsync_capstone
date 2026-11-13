@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pregnancy Profile Mockup</title>
+<style>
+:root{--ink:#10251d;--muted:#708078;--line:#dfe8e2;--green:#167748;--green-soft:#e9f4ed;--cream:#fff9ef;--blue-soft:#f2f7fb;--rose-soft:#fbf3f5;--shadow:0 12px 30px rgba(22,64,45,.08)}
+*{box-sizing:border-box}body{margin:0;background:#f6f9f7;color:var(--ink);font:14px Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.page{max-width:1440px;margin:auto;padding:28px 34px 60px}.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:25px}.eyebrow,.label{color:#728078;font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase}.top h1{font-size:48px;line-height:1;margin:12px 0 14px;letter-spacing:-.05em}.identity{color:#718078;font-size:17px}.actions{display:flex;gap:10px;margin-top:0}.button{border:1px solid var(--line);border-radius:12px;padding:14px 20px;background:white;color:var(--ink);font-weight:800;font-size:14px}.button.primary{background:var(--green);border-color:var(--green);color:white;box-shadow:0 8px 18px rgba(22,119,72,.2)}.summary{margin-top:28px;border:1px solid #ead9b7;border-radius:20px;background:var(--cream);padding:30px 38px;display:grid;grid-template-columns:1fr 360px;gap:36px;box-shadow:var(--shadow)}.summary-top{display:flex;justify-content:space-between;align-items:center}.summary h2{font-size:15px;margin:0;color:#b4771d;text-transform:uppercase;letter-spacing:.09em}.stage{background:#e5eff9;color:#2b6699;padding:8px 13px;border-radius:20px;font-size:12px;font-weight:800}.days{font-size:66px;font-weight:850;letter-spacing:-.07em;margin-top:20px}.days span{font-size:16px;letter-spacing:0;color:var(--muted)}.percent{color:var(--muted);font-weight:700;margin:4px 0 10px}.bar{height:13px;border-radius:20px;background:#858585;overflow:hidden}.bar i{display:block;width:30%;height:100%;background:#079312}.summary-note{color:var(--muted);font-size:15px;margin:18px 0 26px}.facts{display:grid;grid-template-columns:1fr 1fr;gap:18px}.fact{border-top:1px solid #e5ddcf;padding-top:13px}.fact strong{display:block;margin-top:7px}.stats{display:grid;gap:12px}.stat{background:white;border:1px solid #d6e1d9;border-radius:15px;padding:17px 20px}.stat b{display:block;margin-top:7px;font-size:15px}.content-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:24px;margin-top:28px}.card{border:1px solid var(--line);border-radius:18px;background:white;padding:22px;box-shadow:var(--shadow)}.card h2{font-size:15px;margin:0 0 20px}.timeline{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-top:13px}.timeline:before{content:"";position:absolute;left:8px;right:8px;top:21px;height:3px;background:#d7e8dc}.milestone{position:relative}.dot{width:14px;height:14px;border:3px solid #349565;background:white;border-radius:50%;position:relative;z-index:1}.milestone.today .dot{box-shadow:0 0 0 5px #dff0e5}.milestone small{display:block;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;margin-top:18px}.milestone strong{display:block;margin-top:8px;font-size:13px}.relations{display:grid;grid-template-columns:1fr 1fr;gap:14px}.relation{padding:19px;border:1px solid var(--line);border-radius:15px}.relation.dam{background:var(--rose-soft)}.relation.sire{background:var(--blue-soft)}.relation h3{font-size:12px;color:var(--muted);margin:0 0 16px;text-transform:uppercase}.relation strong{display:block;font-size:16px}.relation p{color:var(--muted);margin:8px 0 0}.activity{margin-top:24px}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);margin-bottom:16px}.tab{border:0;background:transparent;padding:11px 14px;color:var(--muted);font-weight:800}.tab.active{color:var(--green);border-bottom:3px solid var(--green)}.row{display:grid;grid-template-columns:1fr 1fr 1fr auto;align-items:center;border-bottom:1px solid #edf2ee;padding:15px 5px}.row:last-child{border-bottom:0}.row small{color:var(--muted);display:block;margin-top:4px}.status{color:var(--green);font-weight:800}.link{color:var(--green);font-weight:800}.mobile-note{display:none}
+/* Flat layout: content groups, not oversized cards. */
+.summary{border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:28px 0 30px;box-shadow:none}
+.stats{align-content:start}
+.stat{border:0;border-left:3px solid var(--green);border-radius:0;background:transparent;padding:4px 0 4px 16px}
+.content-grid{grid-template-columns:1.45fr 1fr;gap:42px;margin-top:28px}
+.card{border:0;border-radius:0;background:transparent;padding:0;box-shadow:none}
+.activity{border-top:1px solid var(--line);padding-top:25px}
+.relation{border:0;border-top:3px solid var(--line);border-radius:0;padding:16px 0;background:transparent!important}
+.relation.dam{border-top-color:#dca6b8}.relation.sire{border-top-color:#9fc4dd}
+.summary{grid-template-columns:minmax(0,1fr) 280px;gap:28px;margin-top:22px}
+.days{font-size:56px}
+.content-grid{grid-template-columns:minmax(0,1fr) 280px;gap:34px}
+.timeline{position:relative;padding:24px 0 8px}
+.timeline:before{content:"";position:absolute;left:0;right:0;top:37px;height:2px;background:var(--line)}
+.milestone{position:relative;z-index:1;background:#f6f9f7;padding-right:18px}
+.milestone .dot{box-shadow:0 0 0 5px #f6f9f7}
+.relations{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.relations h2{grid-column:1/-1;margin-bottom:-8px}
+.activity{grid-column:1/-1}
+.summary,.content-grid,.activity{display:none}
+.history-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:36px;margin-top:34px}
+.history-section{border-top:1px solid var(--line);padding-top:22px}
+.history-section h2{margin:0 0 18px}
+.empty-state{border:1px dashed #cbd8d0;padding:24px 0;color:var(--muted)}
+.notes{border-top:1px solid var(--line);padding-top:22px;color:var(--muted);line-height:1.7}
+.notes strong{display:block;color:var(--ink);margin-bottom:8px}
+.history-timeline{border-left:2px solid var(--green);padding-left:20px}
+@media(max-width:850px){.history-layout{grid-template-columns:1fr}}
+@media(max-width:850px){.page{padding:20px 16px}.top{display:block}.top h1{font-size:38px}.actions{margin-top:20px}.summary,.content-grid{grid-template-columns:1fr}.summary{padding:22px 0}.stats{grid-template-columns:repeat(3,1fr)}.relations{grid-template-columns:1fr}.timeline{gap:6px}.row{grid-template-columns:1fr 1fr}.row>*{margin:5px 0}.mobile-note{display:block;color:var(--muted);font-size:12px;margin-top:20px}}
+</style>
+</head>
+<body>
+<main class="page">
+<header class="top"><div><div class="eyebrow">Cattle Profile</div><h1>Dalisay</h1><div class="identity">2026-095 · Crossbreed · 5y 4m</div></div><div class="actions"><button class="button primary">＋ Add Checkup</button><button class="button">◉ Record Calving</button></div></header>
+<section class="history-layout"><div class="history-section"><h2>Checkup History</h2><div class="empty-state">Earlier monthly checkups will appear here.</div></div><aside class="notes"><strong>General Notes</strong><p>No general notes recorded.</p></aside></section>
+<section class="history-section history-timeline"><h2>Reproductive Timeline</h2><div class="row"><div><b>Current pregnancy</b><small>Aug 18, 2026 → May 28, 2027</small></div><div>Bred with <b>Makiling · 2026-085</b></div><div class="status">In Progress</div></div><div class="row"><div><b>Previous calving</b><small>May 12, 2025</small></div><div>Calf record <b>2025-041</b></div><div class="status">Completed</div></div></section>
+<p class="mobile-note">One cattle profile: current pregnancy, breeding history, pregnancy history, and calving history.</p>
+</main>
+</body>
+</html>

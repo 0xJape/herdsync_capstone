@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const search = request.nextUrl.searchParams.get("search")?.trim() ?? "";
   const livestockId = request.nextUrl.searchParams.get("livestock_id");
   const [result, pregnancies] = await Promise.all([
-    db.query(`SELECT h.*, l.tag_number, l.name livestock_name, u.display_name added_by FROM health_records h JOIN livestock l ON l.id = h.livestock_id LEFT JOIN users u ON u.id = h.created_by_user_id WHERE h.archived_at IS NULL AND ($1 = '' OR l.tag_number ILIKE '%' || $1 || '%' OR COALESCE(l.name, '') ILIKE '%' || $1 || '%' OR h.record_type ILIKE '%' || $1 || '%' OR COALESCE(h.diagnosis, '') ILIKE '%' || $1 || '%') AND ($2::bigint IS NULL OR h.livestock_id = $2) ORDER BY h.record_date DESC, h.id DESC`, [search, livestockId || null]),
+    db.query(`SELECT h.*, l.tag_number, l.name livestock_name, u.display_name added_by FROM health_records h JOIN livestock l ON l.id = h.livestock_id LEFT JOIN users u ON u.id = h.created_by_user_id WHERE ($1 = '' OR l.tag_number ILIKE '%' || $1 || '%' OR COALESCE(l.name, '') ILIKE '%' || $1 || '%' OR h.record_type ILIKE '%' || $1 || '%' OR COALESCE(h.diagnosis, '') ILIKE '%' || $1 || '%') AND ($2::bigint IS NULL OR h.livestock_id = $2) ORDER BY h.archived_at NULLS FIRST, h.record_date DESC, h.id DESC`, [search, livestockId || null]),
     db.query(`SELECT confirmation.id, confirmation.livestock_id, l.tag_number, l.name livestock_name,
         COALESCE(checkup.next_checkup_date, service.event_date) next_checkup_date,
         COALESCE(service.expected_calving_date, service.event_date + 283) expected_calving_date

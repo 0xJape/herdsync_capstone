@@ -10,13 +10,16 @@ const addMonth = (value: string) => { const date = new Date(`${value}T00:00:00Z`
 
 async function activePregnancy(id: number, byLivestock = false) {
   const result = await db.query(`SELECT dam.id livestock_id, dam.tag_number, dam.name, dam.breed, dam.birth_date, dam.health_status, dam.body_condition_score, dam.current_weight_kg,
-      confirmation.id confirmation_id, service.id service_id, service.event_date conception_date, COALESCE(service.expected_calving_date, service.event_date + 283) expected_calving_date,
+      confirmation.id confirmation_id, service.id service_id, service.event_date conception_date,
+      CASE WHEN service.expected_calving_date > service.event_date THEN service.expected_calving_date ELSE service.event_date + 283 END expected_calving_date,
       sire.id sire_id, sire.tag_number sire_tag_number, sire.name sire_name, sire.breed sire_breed
     FROM livestock dam
-    JOIN LATERAL (SELECT * FROM breeding_records WHERE livestock_id = dam.id AND event_type IN ('natural_service','artificial_insemination') AND archived_at IS NULL ORDER BY event_date DESC, id DESC LIMIT 1) service ON TRUE
-    JOIN LATERAL (SELECT * FROM breeding_records confirmation WHERE confirmation.livestock_id = dam.id AND confirmation.source_service_id = service.id AND confirmation.event_type = 'pregnancy_confirmed' AND confirmation.pregnancy_status = 'pregnant' AND confirmation.archived_at IS NULL
+    JOIN LATERAL (SELECT * FROM breeding_records confirmation WHERE confirmation.livestock_id = dam.id AND confirmation.event_type = 'pregnancy_confirmed' AND confirmation.pregnancy_status = 'pregnant' AND confirmation.archived_at IS NULL
       AND NOT EXISTS (SELECT 1 FROM breeding_records terminal WHERE terminal.livestock_id = dam.id AND terminal.archived_at IS NULL AND terminal.event_type IN ('pregnancy_loss','pregnancy_negative','calving') AND (terminal.event_date > confirmation.event_date OR terminal.event_date = confirmation.event_date AND terminal.id > confirmation.id))
       ORDER BY confirmation.event_date DESC,confirmation.id DESC LIMIT 1) confirmation ON TRUE
+    JOIN LATERAL (SELECT * FROM breeding_records service WHERE service.livestock_id = dam.id AND service.event_type IN ('natural_service','artificial_insemination') AND service.archived_at IS NULL
+      AND (service.id = confirmation.source_service_id OR confirmation.source_service_id IS NULL AND (service.event_date < confirmation.event_date OR service.event_date = confirmation.event_date AND service.id < confirmation.id))
+      ORDER BY (service.id = confirmation.source_service_id) DESC, service.event_date DESC, service.id DESC LIMIT 1) service ON TRUE
     LEFT JOIN livestock sire ON sire.id = service.sire_id
     WHERE ${byLivestock ? "dam.id" : "confirmation.id"} = $1 AND dam.archived_at IS NULL`, [id]);
   return result.rows[0];
@@ -24,7 +27,8 @@ async function activePregnancy(id: number, byLivestock = false) {
 
 async function completedCalving(id: number) {
   const result = await db.query(`SELECT event.*, dam.tag_number, dam.name, dam.breed, dam.birth_date dam_birth_date, dam.health_status, dam.body_condition_score, dam.current_weight_kg,
-      service.event_date conception_date, COALESCE(service.expected_calving_date, service.event_date + 283) expected_calving_date,
+      service.event_date conception_date,
+      CASE WHEN service.expected_calving_date > service.event_date THEN service.expected_calving_date ELSE service.event_date + 283 END expected_calving_date,
       sire.id sire_id, sire.tag_number sire_tag_number, sire.name sire_name, sire.breed sire_breed,
       COALESCE(json_agg(json_build_object('id', outcome.id, 'birth_order', outcome.birth_order, 'outcome', outcome.outcome, 'livestock_id', outcome.livestock_id, 'tag_number', calf.tag_number, 'name', outcome.name, 'sex', outcome.sex, 'birth_weight_kg', outcome.birth_weight_kg, 'calf_vigor', outcome.calf_vigor, 'notes', outcome.notes) ORDER BY outcome.birth_order) FILTER (WHERE outcome.id IS NOT NULL), '[]') outcomes
     FROM calving_events event
@@ -57,7 +61,19 @@ export async function GET(request: NextRequest, { params }: Context) {
   const byLivestock = request.nextUrl.searchParams.get("livestock") === "1";
   const pregnancy = await activePregnancy(id, byLivestock);
   if (!pregnancy) {
-    if (byLivestock) return NextResponse.json({ pregnancy: null, checkups: [], records: [], calving_history: await calvingHistory(id) }, { headers: { "Cache-Control": "no-store" } });
+    if (byLivestock) {
+      const records = await db.query(`SELECT record.id,record.event_type,record.event_date,record.pregnancy_status,record.details,record.performed_by,
+          service.event_date service_date, service.expected_calving_date, sire.tag_number sire_tag_number, sire.name sire_name,
+          calving.birth_date calving_date
+        FROM breeding_records record
+        LEFT JOIN breeding_records service ON service.id = record.source_service_id
+        LEFT JOIN livestock sire ON sire.id = service.sire_id
+        LEFT JOIN calving_events calving ON calving.pregnancy_confirmation_id = record.id
+        WHERE record.livestock_id = $1 AND record.archived_at IS NULL
+        ORDER BY record.event_date DESC,record.id DESC`, [id]);
+      const history = await calvingHistory(id);
+      return NextResponse.json({ pregnancy: null, checkups: [], records: records.rows, completed_calving: history[0] ? { birth_date: history[0].birth_date, pregnancy_confirmation_id: history[0].pregnancy_id } : undefined, calving_history: history }, { headers: { "Cache-Control": "no-store" } });
+    }
     const calving = await completedCalving(id);
     if (!calving) return NextResponse.json({ pregnancy: null, checkups: [], records: [], calving_history: [] }, { headers: { "Cache-Control": "no-store" } });
     const [checkups, records] = await Promise.all([
@@ -65,7 +81,7 @@ export async function GET(request: NextRequest, { params }: Context) {
       db.query("SELECT id,event_type,event_date,pregnancy_status,details,performed_by FROM breeding_records WHERE livestock_id = $1 AND archived_at IS NULL ORDER BY event_date DESC,id DESC", [calving.dam_id]),
     ]);
     const conception = dateString(calving.conception_date), birthDate = dateString(calving.birth_date), daysPregnant = Math.max(0, daysBetween(conception, birthDate));
-      return NextResponse.json({ pregnancy: { livestock_id: calving.dam_id, confirmation_id: calving.pregnancy_confirmation_id, tag_number: calving.tag_number, name: calving.name, breed: calving.breed, birth_date: calving.dam_birth_date, health_status: calving.health_status, body_condition_score: calving.body_condition_score, current_weight_kg: calving.current_weight_kg, sire_id: calving.sire_id, sire_tag_number: calving.sire_tag_number, sire_name: calving.sire_name, sire_breed: calving.sire_breed, conception_date: conception, expected_calving_date: dateString(calving.expected_calving_date), days_pregnant: daysPregnant, next_checkup_date: null, checkup_due: false, checkup_overdue: false, key: "completed", label: "Calving completed", guidance: "Pregnancy closed by recorded calving." }, checkups: checkups.rows, records: records.rows, completed_calving: { ...calving, birth_date: birthDate }, calving_history: await calvingHistory(calving.dam_id) }, { headers: { "Cache-Control": "no-store" } });
+        return NextResponse.json({ pregnancy: { livestock_id: calving.dam_id, confirmation_id: calving.pregnancy_confirmation_id, service_id: calving.service_id, tag_number: calving.tag_number, name: calving.name, breed: calving.breed, birth_date: calving.dam_birth_date, health_status: calving.health_status, body_condition_score: calving.body_condition_score, current_weight_kg: calving.current_weight_kg, sire_id: calving.sire_id, sire_tag_number: calving.sire_tag_number, sire_name: calving.sire_name, sire_breed: calving.sire_breed, conception_date: conception, expected_calving_date: dateString(calving.expected_calving_date), days_pregnant: daysPregnant, next_checkup_date: null, checkup_due: false, checkup_overdue: false, key: "completed", label: "Calving completed", guidance: "Pregnancy closed by recorded calving." }, checkups: checkups.rows, records: records.rows, completed_calving: { ...calving, birth_date: birthDate }, calving_history: await calvingHistory(calving.dam_id) }, { headers: { "Cache-Control": "no-store" } });
   }
   const [checkups, records] = await Promise.all([
     db.query("SELECT * FROM pregnancy_checkups WHERE livestock_id = $1 AND service_id = $2 ORDER BY checkup_date DESC, id DESC", [pregnancy.livestock_id, pregnancy.service_id]),

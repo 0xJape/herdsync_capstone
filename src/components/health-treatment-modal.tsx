@@ -63,7 +63,7 @@ export default function HealthTreatmentModal({ animals, initialLivestockId = "",
     withdrawal_required: editing.withdrawal_end_date ? "yes" : "no", withdrawal_end_date: editing.withdrawal_end_date ? dateOnly(editing.withdrawal_end_date) : "",
     next_due_date: editing.next_due_date ? dateOnly(editing.next_due_date) : "", veterinarian: editing.veterinarian ?? "",
     follow_up_date: editing.follow_up_date ? dateOnly(editing.follow_up_date) : "", status: editing.status,
-  } : { ...empty, livestock_id: initialLivestockId, record_type: initialRecordType });
+  } : { ...empty, livestock_id: initialLivestockId, record_type: initialRecordType, repeat_days: protocols[initialRecordType]?.nextDays != null ? String(protocols[initialRecordType].nextDays) : "", next_due_date: protocols[initialRecordType]?.nextDays != null ? addDays(today(), protocols[initialRecordType].nextDays) : "", withdrawal_required: protocols[initialRecordType]?.withdrawalDays != null ? "yes" : "", withdrawal_end_date: protocols[initialRecordType]?.withdrawalDays != null ? addDays(today(), protocols[initialRecordType].withdrawalDays) : "", follow_up_date: protocols[initialRecordType]?.followUpDays != null ? addDays(today(), protocols[initialRecordType].followUpDays) : "" });
   const [batch, setBatch] = useState(false), [batchIds, setBatchIds] = useState<string[]>([]);
   const [batchDoses, setBatchDoses] = useState<Record<string, BatchDose>>({});
   const [search, setSearch] = useState(""), [saving, setSaving] = useState(false), [error, setError] = useState(""), [confirming, setConfirming] = useState(false);

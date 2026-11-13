@@ -7,7 +7,10 @@ import { createPortal } from "react-dom";
 
 export default function SuccessModal({ message, onClose, action }: { message: string; onClose: () => void; action?: { href: string; label: string } }) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const cleanMessage = message.replace(/Ã¢â‚¬â„¢s/g, "");
+  const calvingTag = message.includes("calving record, calf outcome") ? message.match(/^[^ÃÂâ]+/)?.[0] : null;
+  const cleanMessage = calvingTag
+    ? `Calving record for ${calvingTag} was saved successfully.`
+    : message.replace(/[ÃÂâ][^\s]*?s(?=\s)/g, "");
 
   useEffect(() => {
     closeRef.current?.focus();

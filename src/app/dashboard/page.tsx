@@ -3,37 +3,19 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardPlus, Plus, Search, Users, X } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useEffect, useState } from "react";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { useCurrentRole } from "@/lib/use-current-role";
 
 type DashboardData = {
   updatedAt: string;
   operations: { overdue: number; dueToday: number; upcoming: number; unscheduled: number };
   stats: { label: string; value: number; detail: string; kind: string; trendPercent: number; trendDirection: "up" | "down" | "flat" }[];
-  composition: { label: string; value: number }[];
-  population: { month: string; value: number }[];
   alerts: { title: string; livestockId: number; tagNumber: string; dueDate: string | null; dayCount: number; level: string; category: string; timing: string }[];
   attention: AttentionData;
-  recent: { title: string; detail: string }[];
 };
 
 type AttentionData = { items: DashboardData["alerts"]; total: number; page: number; pageSize: number; hasNext: boolean };
-
-function PopulationChart({ data }: { data: DashboardData["population"] }) {
-  const first = data[0]?.value ?? 0;
-  const latest = data.at(-1)?.value ?? 0;
-  const netChange = latest - first;
-  const averageAddition = data.length > 1 ? netChange / (data.length - 1) : 0;
-  return <Card>
-    <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>Cattle registration history</CardTitle><CardDescription>Cumulative non-archived cattle records by month. Current month is partial.</CardDescription></div>{data.length > 0 && <div className="chart-summary"><strong>{data.at(-1)?.value}</strong><span>Current herd</span></div>}</div></CardHeader>
-    {data.length === 0 ? <p className="muted mt-5 text-sm">No population data available.</p> : <>
-      <div className="registration-chart mt-4" role="img" aria-label={`Cumulative cattle records: ${data.map((item) => `${item.month}: ${item.value}`).join(", ")}`}><ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{ top: 18, right: 8, left: 0, bottom: 4 }}><CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 5" /><XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis width={30} tick={{ fill: "var(--muted)", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} /><Tooltip formatter={(value) => [value, "Cattle"]} contentStyle={{ border: "1px solid var(--border)", borderRadius: ".5rem", background: "var(--surface)", color: "var(--foreground)" }} /><Line type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={3} dot={{ r: 4, fill: "var(--accent)", stroke: "var(--surface)", strokeWidth: 2 }} activeDot={{ r: 6 }} /></LineChart></ResponsiveContainer></div>
-      <details className="chart-values text-xs"><summary>View exact values</summary><ul>{data.map((item, index) => <li key={index}><span>{item.month}</span><strong>{item.value}</strong></li>)}</ul></details><dl className="chart-insights"><div><dt>Net change</dt><dd>{netChange > 0 ? "+" : ""}{netChange}</dd></div><div><dt>Average added</dt><dd>{averageAddition.toFixed(1)} / month</dd></div><div><dt>Latest month</dt><dd>{data.at(-1)?.month}</dd></div></dl>
-    </>}
-  </Card>;
-}
 
 function ActivityCalendar({ alerts }: { alerts: DashboardData["alerts"] }) {
   const [month, setMonth] = useState(() => { const value = new Date(); return new Date(value.getFullYear(), value.getMonth(), 1); });
@@ -91,10 +73,7 @@ export default function DashboardPage() {
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : "Attention alerts could not load."))
       .finally(() => setAttentionLoading(false));
   }
-  const total = data?.composition.reduce((sum, item) => sum + item.value, 0) ?? 0;
   const visibleAlerts = attention?.items ?? [];
-  const herdColors = ["#347854", "#c38745", "#6387a8", "#8d6e9d", "#b85e56"];
-  const compositionGradient = data?.composition.map((item, index, items) => { const start = total ? items.slice(0, index).reduce((sum, part) => sum + part.value, 0) / total * 100 : 0; const end = total ? start + item.value / total * 100 : 0; return `${herdColors[index % herdColors.length]} ${start}% ${end}%`; }).join(", ") ?? "var(--surface-muted) 0 100%";
   const overdue = data?.operations.overdue ?? 0;
   return <div className="farm-dashboard">
     <section className={`dashboard-hero status-banner ${overdue ? "status-banner-urgent" : "status-banner-clear"}`} role="status">
@@ -130,23 +109,8 @@ export default function DashboardPage() {
             </table>
           </div>}
           {attention && attention.total > attention.pageSize && <nav className="operations-pagination" aria-label="Needs attention pages"><button className="secondary-button" type="button" disabled={attention.page === 1 || attentionLoading} onClick={() => loadAttention(attention.page - 1)}>Previous</button><span>{`${(attention.page - 1) * attention.pageSize + 1}–${Math.min(attention.page * attention.pageSize, attention.total)} of ${attention.total}`}</span><button className="secondary-button" type="button" disabled={!attention.hasNext || attentionLoading} onClick={() => loadAttention(attention.page + 1)}>Next</button></nav>}
-          {attention && attention.total > 3 && role !== "faculty" && <Link href="/alerts" className="mobile-alert-continuation">View all {attention.total} alerts →</Link>}
         </Card>
       </section>
-      <section className="dashboard-zone dashboard-zone-insights" aria-labelledby="insights-heading"><h2 id="insights-heading" className="dashboard-zone-title">Herd Insights</h2><Card className="composition-card">
-          <div><CardTitle>Herd Composition</CardTitle><CardDescription>Live cattle by production class</CardDescription></div>
-          {data.composition.length === 0 ? <p className="muted text-sm">No cattle records yet.</p> : <div className="composition-chart"><motion.div initial={{ opacity: 0, scale: .92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .55 }} className="composition-donut" style={{ background: `conic-gradient(${compositionGradient})` }} role="img" aria-label={`Herd composition: ${data.composition.map((item) => `${item.label} ${item.value}`).join(", ")}`}><div><strong>{total}</strong><span>Total Cattle</span></div></motion.div><dl className="composition-legend">{data.composition.map((item, index) => <div key={item.label}><dt><span className={`herd-dot herd-color-${index % 5}`} />{item.label}</dt><dd><strong>{item.value}</strong><span>{Math.round(item.value / total * 100)}%</span></dd></div>)}</dl></div>}
-        </Card><div className="farm-secondary-grid">
-        <PopulationChart data={data.population} />
-        <Card><CardTitle>Recent records</CardTitle><CardDescription>Latest cattle registrations and health entries</CardDescription>
-          {data.recent.length === 0 ? <p className="muted mt-5 text-sm">No recent records.</p> : <div className="mt-3 overflow-x-auto" role="region" aria-label="Recent records table" tabIndex={0}>
-            <table className="recent-records-table"><caption className="sr-only">Five latest records, newest first</caption>
-              <thead><tr><th scope="col">Record</th><th scope="col">Details</th></tr></thead>
-              <tbody>{data.recent.map((item, index) => <tr key={index} className={`recent-record-row recent-record-${index % 3}`}><td><span className="recent-record-marker" aria-hidden="true" /><strong>{item.title}</strong></td><td className="muted">{item.detail}</td></tr>)}</tbody>
-            </table>
-          </div>}
-        </Card>
-      </div></section>
     </>}
   </div>;
 }

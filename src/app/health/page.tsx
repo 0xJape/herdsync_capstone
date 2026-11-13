@@ -5,15 +5,17 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
   HeartPulse,
+  Eye,
   Pencil,
   Plus,
   Search,
   Stethoscope,
-  Trash2,
+  Archive as ArchiveIcon,
   X,
 } from "lucide-react";
 import { addDays } from "@/lib/health-rules";
@@ -43,6 +45,7 @@ type HealthRecord = {
   next_due_date?: string | null;
   added_by: string | null;
   status: string;
+  archived_at?: string | null;
 };
 type PregnancyAlert = { id: number; livestock_id: number; tag_number: string; livestock_name: string | null; next_checkup_date: string; expected_calving_date: string };
 const dateOnly = (value: string) => value.slice(0, 10);
@@ -111,6 +114,11 @@ export default function HealthPage() {
   const [form, setForm] = useState(empty),
     [editing, setEditing] = useState<number | null>(null),
     [showForm, setShowForm] = useState(false);
+  const [viewing, setViewing] = useState<HealthRecord | null>(null);
+  const [viewingEditing, setViewingEditing] = useState(false);
+  const [confirmingViewEdit, setConfirmingViewEdit] = useState(false);
+  const [archiving, setArchiving] = useState<HealthRecord | null>(null);
+  const [toast, setToast] = useState("");
   const [batch, setBatch] = useState(false),
     [batchIds, setBatchIds] = useState<string[]>([]),
     [batchDoses, setBatchDoses] = useState<Record<string, BatchDose>>({});
@@ -128,6 +136,11 @@ export default function HealthPage() {
   const [careFilter, setCareFilter] = useState("all");
   const [carePage, setCarePage] = useState(1);
   const [success, setSuccess] = useState("");
+      useEffect(() => {
+        if (!toast) return;
+        const timeout = window.setTimeout(() => setToast(""), 4000);
+        return () => window.clearTimeout(timeout);
+      }, [toast]);
     const applyDatePreset = (preset: string) => {
       const end = today();
       setDatePreset(preset);
@@ -207,7 +220,7 @@ export default function HealthPage() {
   const visibleRecords = useMemo(
     () =>
       records.filter((record) =>
-        (status === "all" || record.status === status) &&
+        (status === "all" || (status === "archived" ? !!record.archived_at : !record.archived_at && record.status === status)) &&
         (recordType === "all" || record.record_type === recordType) &&
         (!dateFrom || dateOnly(record.record_date) >= dateFrom) &&
         (!dateTo || dateOnly(record.record_date) <= dateTo),
@@ -240,7 +253,7 @@ export default function HealthPage() {
   const pagedRecords = visibleRecords.slice((currentPage - 1) * 10, currentPage * 10);
   const scheduled = useMemo(
     () =>
-      [...records
+      [...records.filter((record) => !record.archived_at)
         .flatMap(
           (record) =>
             [
@@ -285,6 +298,7 @@ export default function HealthPage() {
     () => {
       const restricted = records.filter(
         (record) =>
+          !record.archived_at &&
           (record.status === "open" && record.record_type === "antibiotics") ||
             (record.withdrawal_end_date &&
               dateOnly(record.withdrawal_end_date) >= today()),
@@ -294,7 +308,7 @@ export default function HealthPage() {
     [records],
   );
   const selectedRestriction = [...linkedRecords, ...activeRestrictions].find(
-    (record) => String(record.livestock_id) === form.livestock_id &&
+    (record) => !record.archived_at && String(record.livestock_id) === form.livestock_id &&
       ((record.status === "open" && record.record_type === "antibiotics") ||
         !!(record.withdrawal_end_date && dateOnly(record.withdrawal_end_date) >= today())),
   );
@@ -325,10 +339,10 @@ export default function HealthPage() {
   const carePageCount = Math.max(1, Math.ceil(careItems.length / 5));
   const currentCarePage = Math.min(carePage, carePageCount);
   const pagedCareItems = careItems.slice((currentCarePage - 1) * 5, currentCarePage * 5);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    if (batch && !editing && batchIds.some((id) => !batchDoses[id]?.dose || Number(batchDoses[id].dose) <= 0 || !batchDoses[id].route)) {
+  async function submit(event?: FormEvent) {
+    event?.preventDefault();
+    setError(""); 
+    if (batch && !editing && batchIds.some((id) => !batchDoses[id]?.dose || Number(batchDoses[id].dose) <= 0 || !batchDoses[id].route)) { 
       setError("Enter a valid dosage and route of administration for every selected animal.");
       return;
     }
@@ -337,7 +351,10 @@ export default function HealthPage() {
     const nextDue = form.repeat_days
       ? addDays(form.record_date, Number(form.repeat_days))
       : form.next_due_date;
-    const payload = {
+    const payload = viewingEditing ? {
+      veterinarian: form.veterinarian,
+      details: form.details,
+    } : {
       ...form,
       livestock_ids: batch && !editing ? batchIds : undefined,
       batch_doses: batch && !editing ? Object.fromEntries(batchIds.map((id) => [id, `${batchDoses[id].dose} ${batchDoses[id].unit}`])) : undefined,
@@ -365,12 +382,19 @@ export default function HealthPage() {
     setEditing(null);
     setShowForm(false);
     await load();
-    setSuccess(wasEditing ? "Health record updated successfully." : savedCount > 1 ? `Treatment recorded for ${savedCount} cattle.` : "Health record added successfully.");
+    if (wasEditing && viewingEditing && viewing) {
+      setViewing({ ...viewing, record_type: form.record_type, record_date: form.record_date, diagnosis: form.diagnosis || null, details: form.details || null, treatment: form.medication_name || null, medication_name: form.medication_name || null, dose: `${form.dose} ${form.dosage_unit}`.trim() || null, administration_route: form.administration_route || null, treatment_end_date: form.treatment_end_date || null, withdrawal_end_date: form.withdrawal_end_date || null, veterinarian: form.veterinarian || null, follow_up_date: form.follow_up_date || null, next_due_date: nextDue || null, status: form.status });
+      setViewingEditing(false);
+      setConfirmingViewEdit(false);
+      setToast("Health record updated successfully.");
+    } else setSuccess(wasEditing ? "Health record updated successfully." : savedCount > 1 ? `Treatment recorded for ${savedCount} cattle.` : "Health record added successfully.");
   }
-  function edit(record: HealthRecord) {
+  function edit(record: HealthRecord, inline = viewing !== null) {
     setEditing(record.id);
     setBatch(false);
-    setShowForm(true);
+    setShowForm(!inline);
+    setViewingEditing(inline);
+    if (inline) setViewing(record);
     setForm({
       ...empty,
       livestock_id: String(record.livestock_id),
@@ -399,17 +423,14 @@ export default function HealthPage() {
     });
   }
   async function archive(record: HealthRecord) {
-    if (
-      !confirm(`Archive ${record.record_type} record for ${record.tag_number}?`)
-    )
-      return;
     const response = await fetch(`/api/health/${record.id}`, {
       method: "DELETE",
     });
     if (!response.ok)
       return setError((await response.json()).error ?? "Archive failed");
     await load();
-    setSuccess(`${record.record_type.replaceAll("_", " ")} record for ${record.tag_number} archived successfully.`);
+    setArchiving(null);
+    setToast(`${titleCase(record.record_type)} record for ${record.tag_number} archived successfully.`);
   }
   const field = (name: keyof typeof empty, value: string) =>
     setForm((current) => ({ ...current, [name]: value }));
@@ -651,16 +672,10 @@ export default function HealthPage() {
           )}
         </aside>
       </div>
-      <section className="panel health-records-panel">
-        <header>
-          <div className="health-records-heading">
-            <span className="cattle-eyebrow">Health records</span>
-            <h2><Stethoscope size={18} /> Clinical history</h2>
-            <p>Track every checkup, preventive treatment, medication, and follow-up in one place.</p>
-            <span className="health-record-count">{visibleRecords.length} record{visibleRecords.length === 1 ? "" : "s"}</span>
-          </div>
-          <div className="health-record-tools">
-            <label>
+      <section className="breeding-records health-records-panel">
+        <header><div><h2>Health Records</h2></div><b>{visibleRecords.length} record{visibleRecords.length === 1 ? "" : "s"}</b></header>
+          <div className="operations-toolbar health-record-tools">
+            <label className="operations-search">
               <Search size={15} />
               <input
                 aria-label="Search health records"
@@ -669,7 +684,7 @@ export default function HealthPage() {
                 onChange={(event) => { setSearch(event.target.value); setPage(1); }}
               />
             </label>
-            <label className="health-care-filter"><span>Care type</span><select aria-label="Filter care type" value={recordType} onChange={(event) => { setRecordType(event.target.value); setPage(1); }}>
+            <div className="operations-filters"><label className="health-care-filter"><span>Care type</span><select aria-label="Filter care type" value={recordType} onChange={(event) => { setRecordType(event.target.value); setPage(1); }}>
               {recordTypes.map((type) => <option key={type} value={type}>{type === "all" ? "All care types" : titleCase(type)}</option>)}
             </select></label>
             <select
@@ -680,13 +695,13 @@ export default function HealthPage() {
               <option value="all">All statuses</option>
               <option value="open">Active care</option>
               <option value="resolved">Completed</option>
+              <option value="archived">Archived</option>
             </select>
             <label className="health-date-filter"><span>Date</span><select aria-label="Filter records by date" value={datePreset} onChange={(event) => applyDatePreset(event.target.value)}><option value="all">All dates</option><option value="today">Today</option><option value="7-days">Last 7 days</option><option value="30-days">Last 30 days</option><option value="custom">Custom range</option></select></label>
             {datePreset === "custom" && <><label className="health-date-filter"><span>From</span><input aria-label="Filter records from date" type="date" value={dateFrom} max={dateTo || undefined} onChange={(event) => { setDatePreset("custom"); setDateFrom(event.target.value); setPage(1); }} /></label>
             <label className="health-date-filter"><span>To</span><input aria-label="Filter records to date" type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => { setDatePreset("custom"); setDateTo(event.target.value); setPage(1); }} /></label></>}
-            {(dateFrom || dateTo) && <button type="button" className="secondary-button health-clear-filter" onClick={() => applyDatePreset("all")}>Clear dates</button>}
+            {(dateFrom || dateTo) && <button type="button" className="secondary-button health-clear-filter" onClick={() => applyDatePreset("all")}>Clear dates</button>}</div>
           </div>
-        </header>
         {loading ? (
           <p className="muted">Loading health records…</p>
         ) : visibleRecords.length ? (
@@ -694,7 +709,7 @@ export default function HealthPage() {
             <div className="clinical-history-table" role="region" aria-label="Clinical history table" tabIndex={0}>
               <table>
                 <caption className="sr-only">Clinical health records, newest first</caption>
-                <thead><tr><th scope="col">Cattle</th><th scope="col">Record</th><th scope="col">Clinical notes</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+                <thead><tr><th scope="col">Cattle ID</th><th scope="col">Record</th><th scope="col">Administered By</th><th scope="col">Date</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                 <tbody>{pagedRecords.map((record) => (
                 <tr key={record.id}>
                   <td className="clinical-animal">
@@ -704,37 +719,32 @@ export default function HealthPage() {
                     <span>{record.livestock_name || "Unnamed animal"}</span>
                   </td>
                   <td><span className={`clinical-record-type health-type-${record.record_type}`}>{titleCase(record.record_type)}</span></td>
-                  <td className="clinical-notes"><strong>{record.diagnosis || record.details || "Routine care"}</strong><span>Added by {record.added_by || "Unknown"}</span></td>
+                  <td>{record.added_by || "Unknown"}</td>
                   <td><time dateTime={record.record_date}>
                     {formatDate(record.record_date)}
                   </time></td>
-                  <td><span className={`record-status ${record.status}`}>
-                    <span data-tooltip={record.status === "open" ? "Active care still needs monitoring or follow-up." : "Completed care needs no further action."}>{record.status === "open" ? "Active" : "Completed"}</span>
+                  <td><span className={`record-status ${record.archived_at ? "archived" : record.status}`}>
+                    <span data-tooltip={record.archived_at ? "Archived records remain available for history but do not drive care schedules." : record.status === "open" ? "Active care still needs monitoring or follow-up." : "Completed care needs no further action."}>{record.archived_at ? "Archived" : record.status === "open" ? "Active" : "Completed"}</span>
                   </span></td>
                   <td><div className="health-row-actions">
-                    <button
+                    <button type="button" className="icon-button" aria-label={`View ${record.tag_number} health record`} data-tooltip="View this health record" onClick={() => setViewing(record)}>
+                      <Eye size={15} />
+                    </button>
+                    {!record.archived_at && <button
                       type="button"
                       className="icon-button"
-                      aria-label={`Edit ${record.tag_number} health record`}
-                      data-tooltip="Edit this health record"
-                      onClick={() => edit(record)}
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button danger"
                       aria-label={`Archive ${record.tag_number} health record`}
                       data-tooltip="Archive this health record"
-                      onClick={() => archive(record)}
+                      onClick={() => setArchiving(record)}
                     >
-                      <Trash2 size={15} />
-                    </button>
+                      <ArchiveIcon size={15} />
+                    </button>}
                   </div></td>
                 </tr>
               ))}</tbody></table>
             </div>
-            {pageCount > 1 && (
+            <div className="health-pagination-wrap">
+              <p>{`${(currentPage - 1) * 10 + 1}–${Math.min(currentPage * 10, visibleRecords.length)} of ${visibleRecords.length}`}</p>
               <nav
                 className="health-pagination"
                 aria-label="Health records pages"
@@ -768,7 +778,7 @@ export default function HealthPage() {
                   <ChevronRight size={15} />
                 </button>
               </nav>
-            )}
+            </div>
           </>
         ) : (
           <div className="health-empty">
@@ -779,7 +789,11 @@ export default function HealthPage() {
         )}
       </section>
       {success && <SuccessModal message={success} onClose={() => setSuccess("")}/>}
-      {showForm && <HealthTreatmentModal animals={animals} initialLivestockId={form.livestock_id} initialRecordType={form.record_type} editingRecord={editing ? records.find((record) => record.id === editing) ?? null : null} restrictions={[...linkedRecords, ...activeRestrictions]} onClose={() => setShowForm(false)} onError={setError} onSaved={async (message) => { setShowForm(false); setEditing(null); await load(); setSuccess(message); }}/>}
+      {showForm && <HealthTreatmentModal animals={animals} initialLivestockId={form.livestock_id} initialRecordType={form.record_type} editingRecord={editing ? records.find((record) => record.id === editing) ?? null : null} restrictions={[...linkedRecords, ...activeRestrictions]} onClose={() => setShowForm(false)} onError={setError} onSaved={async (message) => { const wasEditing = editing !== null; setShowForm(false); setEditing(null); await load(); if (wasEditing) setToast(message); else setSuccess(message); }}/>} 
+      {viewing && <div className="cattle-modal-backdrop health-view-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setViewing(null)}><section className="cattle-modal health-view-modal" role="dialog" aria-modal="true" aria-labelledby="health-view-title"><header><div><span className="cattle-eyebrow">Health record</span><h2 id="health-view-title">{titleCase(viewing.record_type)} details</h2></div><button type="button" className="icon-button" aria-label="Close record details" onClick={() => setViewing(null)}><X size={18}/></button></header><dl className="health-view-grid"><div><dt>Cattle ID</dt><dd>{viewing.tag_number}</dd></div><div><dt>Cattle name</dt><dd>{viewing.livestock_name || "—"}</dd></div><div><dt>Record type</dt><dd>{titleCase(viewing.record_type)}</dd></div><div><dt>Status</dt><dd>{viewing.status === "open" ? "Active" : "Completed"}</dd></div><div><dt>Date administered</dt><dd>{formatDate(viewing.record_date)}</dd></div><div><dt>Administered by</dt><dd>{viewing.veterinarian || viewing.added_by || "—"}</dd></div><div><dt>Diagnosis</dt><dd>{viewing.diagnosis || "—"}</dd></div><div><dt>Treatment</dt><dd>{viewing.medication_name || viewing.treatment || "—"}</dd></div><div><dt>Dose</dt><dd>{viewing.dose || "—"}</dd></div><div><dt>Route</dt><dd>{viewing.administration_route || "—"}</dd></div><div><dt>Treatment end</dt><dd>{viewing.treatment_end_date ? formatDate(viewing.treatment_end_date) : "—"}</dd></div><div><dt>Withdrawal end</dt><dd>{viewing.withdrawal_end_date ? formatDate(viewing.withdrawal_end_date) : "—"}</dd></div><div><dt>Follow-up</dt><dd>{viewing.follow_up_date ? formatDate(viewing.follow_up_date) : "—"}</dd></div><div><dt>Next due</dt><dd>{viewing.next_due_date ? formatDate(viewing.next_due_date) : "—"}</dd></div><div className="health-view-wide"><dt>Notes / observations</dt><dd>{viewing.details || "—"}</dd></div></dl><footer className="modal-actions"><button type="button" className="secondary-button" onClick={() => setViewing(null)}>Close</button><button type="button" className="primary-button" onClick={() => { const record = viewing; setViewing(null); edit(record); }}><Pencil size={15}/> Edit record</button></footer></section></div>}
+      {toast && <div className="reproduction-toast" role="status"><Check size={17}/><span>{toast}</span><button type="button" aria-label="Dismiss notification" onClick={() => setToast("")}><X size={15}/></button></div>}
+      {archiving && <div className="cattle-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setArchiving(null)}><section className="cattle-modal health-archive-modal" role="alertdialog" aria-modal="true" aria-labelledby="health-archive-title" aria-describedby="health-archive-description"><header><div className="health-archive-icon"><ArchiveIcon size={20}/></div><div><span className="cattle-eyebrow">Archive health record</span><h2 id="health-archive-title">Archive {titleCase(archiving.record_type)} record?</h2></div></header><p id="health-archive-description">This removes the record for <strong>{archiving.tag_number}</strong> from active care schedules and restrictions. It remains available under Archived records.</p><footer><button type="button" className="secondary-button" onClick={() => setArchiving(null)}><X size={15}/> Cancel</button><button type="button" className="primary-button" onClick={() => void archive(archiving)}><ArchiveIcon size={15}/> Archive record</button></footer></section></div>}
+      {viewing && viewingEditing && <div className="cattle-modal-backdrop health-view-backdrop health-inline-edit-backdrop" role="presentation"><section className="cattle-modal health-view-modal health-inline-edit-modal" role="dialog" aria-modal="true" aria-labelledby="health-inline-edit-title"><header><div><span className="cattle-eyebrow">Editing health record</span><h2 id="health-inline-edit-title">{titleCase(form.record_type)} for {viewing.tag_number}</h2></div><button type="button" className="icon-button" aria-label="Cancel editing" onClick={() => setViewingEditing(false)}><X size={18}/></button></header><form className="health-inline-edit-form" onSubmit={(event) => { event.preventDefault(); setConfirmingViewEdit(true); }}><label className="field"><span>Record type</span><select required value={form.record_type} onChange={(event) => field("record_type",event.target.value)}><option value="checkup">Checkup</option><option value="vaccination">Vaccination</option><option value="vitamins">Vitamins</option><option value="antibiotics">Antibiotics</option><option value="anti_inflammatory">Anti-Inflammatory</option><option value="dewormer">Dewormer</option></select></label><label className="field"><span>Date administered</span><input required type="date" max={today()} value={form.record_date} onChange={(event) => field("record_date",event.target.value)}/></label><label className="field"><span>Administered by</span><input required value={form.veterinarian} onChange={(event) => field("veterinarian",event.target.value)}/></label><label className="field"><span>Status</span><select value={form.status} onChange={(event) => field("status",event.target.value)}><option value="open">Active</option><option value="resolved">Completed</option></select></label><label className="field"><span>Treatment / medication</span><input value={form.medication_name} onChange={(event) => field("medication_name",event.target.value)}/></label><label className="field"><span>Dose</span><span className="dose-field"><input type="number" min="0" step="any" value={form.dose} onChange={(event) => field("dose",event.target.value)}/><select aria-label="Dosage unit" value={form.dosage_unit} onChange={(event) => field("dosage_unit",event.target.value)}>{["ml","cc","mg","g","IU"].map((unit) => <option key={unit}>{unit}</option>)}</select></span></label><label className="field"><span>Administration route</span><select value={form.administration_route} onChange={(event) => field("administration_route",event.target.value)}><option value="">Not specified</option>{[["Intramuscular (IM)","IM"],["Subcutaneous (SC)","SC"],["Intravenous (IV)","IV"],["Oral","Oral"],["Topical","Topical"],["Nasal","Nasal"]].map(([label,value]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="field"><span>Follow-up date</span><input type="date" value={form.follow_up_date} onChange={(event) => field("follow_up_date",event.target.value)}/></label><label className="field health-view-wide"><span>Notes / observations</span><textarea value={form.details} onChange={(event) => field("details",event.target.value)}/></label><footer className="health-view-wide modal-actions"><button type="button" className="secondary-button" onClick={() => setViewingEditing(false)}><X size={15}/> Cancel</button><button type="submit" className="primary-button"><Check size={15}/> Review changes</button></footer></form></section>{confirmingViewEdit && <section className="cattle-modal compact-modal health-inline-confirm" role="alertdialog" aria-modal="true" aria-labelledby="health-inline-confirm-title"><header><div><span className="cattle-eyebrow">Final check</span><h2 id="health-inline-confirm-title">Are these changes correct?</h2></div></header><p className="muted">Confirm updated details for {viewing.tag_number}.</p><footer className="modal-actions"><button type="button" className="secondary-button" onClick={() => setConfirmingViewEdit(false)}><Pencil size={15}/> Continue editing</button><button type="button" className="primary-button" onClick={() => void submit({ preventDefault() {} } as FormEvent)}><Check size={15}/> Confirm changes</button></footer></section>}</div>}
       {false && showForm && (
         <div
           className="cattle-modal-backdrop"
