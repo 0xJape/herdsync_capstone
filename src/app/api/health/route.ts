@@ -6,6 +6,7 @@ import { administeredCareTypes, applyHealthProtocol, healthRecordTypes, validate
 const statuses = new Set(["open", "resolved"]);
 const text = (value: unknown, max: number, required = false) => typeof value === "string" && (!required || value.trim()) && value.length <= max;
 const date = (value: unknown, required = false) => (!required && (value === "" || value == null)) || (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value));
+const validDose = (value: unknown) => typeof value === "string" && Number.parseFloat(value) > 0 && Number.parseFloat(value) <= 1000;
 const structuredText = [["medication_name", 200], ["dose", 100], ["administration_route", 100]] as const;
 const structuredDates = ["treatment_start_date", "treatment_end_date", "withdrawal_end_date", "next_due_date"] as const;
 
@@ -39,17 +40,22 @@ export async function POST(request: NextRequest) {
   const batchDoses = body.batch_doses && typeof body.batch_doses === "object" && !Array.isArray(body.batch_doses) ? body.batch_doses as Record<string, unknown> : null;
   const batchRoutes = body.batch_routes && typeof body.batch_routes === "object" && !Array.isArray(body.batch_routes) ? body.batch_routes as Record<string, unknown> : null;
   if (livestockIds.length > 1 && (!batchDoses || livestockIds.some((id) => !text(batchDoses[String(id)], 100, true)))) return NextResponse.json({ error: "A valid dose is required for every selected animal" }, { status: 400 });
+  if (batchDoses && livestockIds.some((id) => !validDose(batchDoses[String(id)]))) return NextResponse.json({ error: "Dosage must be greater than 0 and no more than 1000" }, { status: 400 });
   if (livestockIds.length > 1 && (!batchRoutes || livestockIds.some((id) => !text(batchRoutes[String(id)], 100, true)))) return NextResponse.json({ error: "A route of administration is required for every selected animal" }, { status: 400 });
   if (!text(body.record_type, 100, true)) return NextResponse.json({ error: "Record type is required and must be at most 100 characters" }, { status: 400 });
   if (!date(body.record_date, true) || !date(body.follow_up_date)) return NextResponse.json({ error: "Valid record and follow-up dates are required" }, { status: 400 });
   if (structuredDates.some((field) => !date(body[field]))) return NextResponse.json({ error: "Invalid treatment date" }, { status: 400 });
   if (!statuses.has(String(body.status))) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-  for (const [field, max] of [["veterinarian", 150], ["diagnosis", 5000], ["details", 10000], ["treatment", 5000]] as const) if (!text(body[field] ?? "", max)) return NextResponse.json({ error: `${field} is too long` }, { status: 400 });
+  for (const [field, max] of [["veterinarian", 100], ["diagnosis", 5000], ["details", 50], ["treatment", 5000]] as const) if (!text(body[field] ?? "", max)) return NextResponse.json({ error: `${field} is too long` }, { status: 400 });
   for (const [field, max] of structuredText) if (!text(body[field] ?? "", max)) return NextResponse.json({ error: `${field} is too long` }, { status: 400 });
   const recordType = String(body.record_type).trim();
   if (!healthRecordTypes.has(recordType)) return NextResponse.json({ error: "Invalid record type" }, { status: 400 });
+  const scheduledFromId = Number(body.scheduled_from_id);
+  if (body.scheduled_from_id != null && (!Number.isSafeInteger(scheduledFromId) || scheduledFromId < 1 || livestockIds.length !== 1)) return NextResponse.json({ error: "Invalid scheduled care source" }, { status: 400 });
   const reviewedFromId = Number(body.reviewed_from_id);
   if (["antibiotics", "anti_inflammatory"].includes(recordType)) {
+    const restriction = await db.query("SELECT id FROM health_records WHERE livestock_id = ANY($1::bigint[]) AND record_type IN ('antibiotics','anti_inflammatory') AND archived_at IS NULL AND (status = 'open' OR withdrawal_end_date >= CURRENT_DATE) ORDER BY id DESC LIMIT 1", [livestockIds]);
+    if (restriction.rowCount) return NextResponse.json({ error: "Antibiotics and anti-inflammatory treatment are restricted while AMR monitoring or withdrawal is active" }, { status: 409 });
     const active = await db.query("SELECT id FROM health_records WHERE livestock_id = ANY($1::bigint[]) AND record_type = $2 AND status = 'open' AND archived_at IS NULL ORDER BY id DESC LIMIT 1", [livestockIds, recordType]);
     if (active.rows[0]) {
       if (!Number.isSafeInteger(reviewedFromId) || reviewedFromId !== Number(active.rows[0].id)) return NextResponse.json({ error: "Record a monitoring checkup before re-administering this treatment" }, { status: 409 });
@@ -59,6 +65,7 @@ export async function POST(request: NextRequest) {
   }
   body = applyHealthProtocol(recordType, String(body.record_date), body);
   if (administeredCareTypes.has(recordType) && (!text(body.medication_name, 200, true) || (!batchDoses && !text(body.dose, 100, true)) || (!batchRoutes && !text(body.administration_route, 100, true)) || !text(body.veterinarian, 150, true))) return NextResponse.json({ error: "Product, dose, route, and administrator are required for administered care" }, { status: 400 });
+  if (administeredCareTypes.has(recordType) && !batchDoses && !validDose(body.dose)) return NextResponse.json({ error: "Dosage must be greater than 0 and no more than 1000" }, { status: 400 });
   const dateError = validateHealthDates({ recordDate: String(body.record_date), nextDueDate: body.next_due_date as string, followUpDate: body.follow_up_date as string, treatmentEndDate: body.treatment_end_date as string, withdrawalEndDate: body.withdrawal_end_date as string });
   if (dateError) return NextResponse.json({ error: dateError }, { status: 400 });
   const animals = await db.query("SELECT id, tag_number, status FROM livestock WHERE id = ANY($1::bigint[]) AND archived_at IS NULL", [livestockIds]);
@@ -67,6 +74,11 @@ export async function POST(request: NextRequest) {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    if (Number.isSafeInteger(scheduledFromId)) {
+      const source = await client.query("SELECT id FROM health_records WHERE id = $1 AND livestock_id = $2 AND record_type = $3 AND next_due_date IS NOT NULL AND archived_at IS NULL FOR UPDATE", [scheduledFromId, livestockIds[0], recordType]);
+      if (!source.rowCount) throw new Error("SCHEDULED_CARE_NOT_FOUND");
+      await client.query("UPDATE health_records SET next_due_date = NULL, updated_at = NOW() WHERE id = $1", [scheduledFromId]);
+    }
     if (administeredCareTypes.has(recordType)) {
       await client.query(
         "INSERT INTO treatment_products (treatment_type, name) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -101,6 +113,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(livestockIds.length > 1 ? records : records[0], { status: 201 });
   } catch (error) {
     await client.query("ROLLBACK");
+    if (error instanceof Error && error.message === "SCHEDULED_CARE_NOT_FOUND") return NextResponse.json({ error: "Scheduled care record not found" }, { status: 404 });
     if (error instanceof Error && error.message.startsWith("DUPLICATE_HEALTH_RECORD:")) return NextResponse.json({ error: "This health record was already saved. Refresh before trying again." }, { status: 409 });
     throw error;
   } finally { client.release(); }

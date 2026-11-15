@@ -26,13 +26,13 @@ export async function POST(request: NextRequest, { params }: Context) {
     const source = await client.query("SELECT h.*, l.tag_number FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.id = $1 AND h.archived_at IS NULL FOR UPDATE", [id]);
     if (!source.rows[0]) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Health record not found" }, { status: 404 }); }
     const record = source.rows[0];
-    if (record.status !== "open" || !["illness", "injury", "treatment", "antibiotics", "anti_inflammatory"].includes(record.record_type)) {
+    if (record.status !== "open" || !["checkup", "illness", "injury", "treatment", "antibiotics", "anti_inflammatory"].includes(record.record_type)) {
       await client.query("ROLLBACK");
       return NextResponse.json({ error: "Only active clinical records can receive checkups" }, { status: 409 });
     }
     const checkup = await client.query(
-      "INSERT INTO health_records (livestock_id, record_type, record_date, diagnosis, details, treatment, follow_up_date, status, created_by_user_id, source_health_record_id) VALUES ($1, 'checkup', CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-      [record.livestock_id, outcome === "recovered" ? "Recovered" : "Still under monitoring", notes, `Follow-up for ${record.medication_name || record.treatment || record.record_type}`, outcome === "monitoring" ? nextDate : null, outcome === "recovered" ? "resolved" : "open", auth.user.id, record.id],
+      "INSERT INTO health_records (livestock_id, record_type, record_date, diagnosis, details, treatment, status, created_by_user_id, source_health_record_id) VALUES ($1, 'checkup', CURRENT_DATE, $2, $3, $4, 'resolved', $5, $6) RETURNING *",
+      [record.livestock_id, outcome === "recovered" ? "Recovered" : "Still under monitoring", notes, `Follow-up for ${record.medication_name || record.treatment || record.record_type}`, auth.user.id, record.id],
     );
     await client.query("UPDATE health_records SET status = $1, follow_up_date = $2, updated_at = NOW() WHERE id = $3", [outcome === "recovered" ? "resolved" : "open", outcome === "monitoring" ? nextDate : null, id]);
     if (outcome === "recovered") {

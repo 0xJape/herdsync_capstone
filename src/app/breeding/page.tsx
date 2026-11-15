@@ -12,7 +12,7 @@ type Care = { id: number; livestock_id: number; tag_number: string; care_type: s
 type Pregnancy = { livestock_id: number; pregnancy_id: number; tag_number: string; name: string | null; breed: string; sire_id: number | null; sire_tag_number: string | null; conception_date: string; confirmation_due_date: string; expected_calving_date: string; days_pregnant: number; key: string; label: string; guidance: string };
 type PregnancyHistory = { pregnancy_id: number; livestock_id: number; tag_number: string; name: string | null; breed: string; confirmation_date: string; service_id: number | null; conception_date: string | null; sire_id: number | null; sire_tag_number: string | null; expected_calving_date: string; outcome: "active" | "calving" | "pregnancy_loss" | "pregnancy_negative"; outcome_date: string | null };
 type PregnancyCheck = { livestock_id: number; tag_number: string; name: string | null; breeding_date: string; check_date: string; check_status: "not_yet_available" | "due" | "overdue" | "completed"; expected_calving_date: string; result: "pregnancy_confirmed" | "pregnancy_negative" | "pregnancy_loss" | null; source_event_id: number };
-type Calving = { id: number; pregnancy_id: number; birth_date: string; calving_difficulty: string; twins: boolean; notes: string | null; dam_id: number; dam_tag: string; dam_name: string | null; calf_count: number; calves: string };
+type Calving = { id: number; pregnancy_id: number; birth_date: string; calving_difficulty: string; twins: boolean; notes: string | null; dam_id: number; dam_tag: string; dam_name: string | null; calf_count: number; calves: string; calf_statuses: string | null };
 type Pagination = { page: number; total: number; hasNext: boolean };
 type Data = { cattle: Animal[]; pregnancies: Pregnancy[]; pregnancyHistory: PregnancyHistory[]; pregnancyChecks: PregnancyCheck[]; care: Care[]; calvingHistory: Calving[]; pages: Record<"pregnancies" | "pregnancyHistory" | "pregnancyChecks" | "care" | "calvingHistory", Pagination>; summary: { pregnancies: number; checksDue: number; nearCalving: number; careDue: number } };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -42,6 +42,21 @@ function PregnancyWorkspace({ view = "pregnancy" }: { view?: "pregnancy" | "calv
       .catch((reason) => { if (reason instanceof Error && reason.name !== "AbortError") setError(reason.message); });
     return () => controller.abort();
   }, [query]);
+  useEffect(() => {
+    const table = document.querySelector<HTMLTableElement>(".pregnancy-history-panel .pregnancy-workspace-table");
+    const statusHeader = table?.tHead?.rows[0]?.cells[2];
+    if (statusHeader) statusHeader.textContent = "Status";
+    table?.querySelectorAll<HTMLTableRowElement>("tbody tr").forEach((row, index) => {
+      const status = data?.calvingHistory[index]?.calf_statuses;
+      const cell = row.cells[2], count = cell?.querySelector("strong"), detail = cell?.querySelector("span");
+      if (cell) cell.dataset.label = "Status";
+      count?.remove();
+      if (detail) {
+        const statuses = status ? [...new Set(status.split(", "))] : [];
+        detail.replaceChildren(...(statuses.length ? statuses.map((value) => { const pill = document.createElement("span"); pill.className = `calving-status calving-status-${value}`; pill.textContent = label(value); return pill; }) : [document.createTextNode("Status not recorded")]));
+      }
+    });
+  }, [data?.calvingHistory]);
   const females = data?.cattle.filter((animal) => animal.sex === "female") ?? [], sires = data?.cattle.filter((animal) => animal.sex === "male") ?? [], pregnancies = [...(data?.pregnancies.filter((item) => stage === "all" || item.key === stage) ?? [])].sort((a, b) => sort === "due" ? a.expected_calving_date.localeCompare(b.expected_calving_date) : sort === "oldest" ? a.conception_date.localeCompare(b.conception_date) : b.conception_date.localeCompare(a.conception_date)), stages = [...new Map((data?.pregnancies ?? []).map((item) => [item.key,item.label])).entries()], careCategories = [...new Set((data?.care ?? []).map((item) => careCategory(item.care_type)))], careRows = (data?.care ?? []).filter((item) => careFilter === "all" || careCategory(item.care_type) === careFilter), checkRows = (data?.pregnancyChecks ?? []).filter((item) => checkFilter === "all" || pregnancyCheckStatus(item) === checkFilter), historyDifficulties = [...new Set((data?.calvingHistory ?? []).map((item) => item.calving_difficulty))], historyRows = (data?.calvingHistory ?? []).filter((item) => (!calvingFromDate || item.birth_date.slice(0, 10) >= calvingFromDate) && (!calvingToDate || item.birth_date.slice(0, 10) <= calvingToDate) && (historyFilter === "all" || item.calving_difficulty === historyFilter));
   async function submit(url: string, payload: object, message: string) { setSaving(true); setError(""); try { const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Save failed"); await load(); setModal(null); setEvent({ ...emptyEvent, event_date: today() }); setBirth({ ...emptyBirth, birth_date: today() }); setSuccess(message); } catch (reason) { setError(reason instanceof Error ? reason.message : "Save failed"); } finally { setSaving(false); } }
   function saveEvent(e: FormEvent) { e.preventDefault(); void submit(`/api/livestock/${event.livestock_id}/breeding`, event, "Breeding event recorded."); }

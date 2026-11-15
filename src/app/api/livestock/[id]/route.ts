@@ -3,17 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
 import { livestockFields, normalizeLivestock, validateLivestock, withCategory } from "@/lib/livestock";
+import { releaseExpiredQuarantines } from "@/lib/quarantine";
 
-const allowed = ["tag_number", ...livestockFields] as const;
+const allowed = ["tag_number", ...livestockFields.filter((field) => field !== "quarantine_status")] as const;
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_: NextRequest, { params }: Context) {
   const auth = await requireRole("veterinarian", "farm_aide", "faculty"); if ("response" in auth) return auth.response;
   const { id } = await params;
-  const result = await db.query("SELECT * FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
+  await releaseExpiredQuarantines(id);
+  const result = await db.query("SELECT * FROM livestock WHERE id = $1", [id]);
   if (!result.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
   const relatives = await db.query("SELECT id, tag_number, name, sex, breed, birth_date, status FROM livestock WHERE archived_at IS NULL AND (id = $1 OR id = $2 OR sire_id = $3 OR dam_id = $3) ORDER BY birth_date", [result.rows[0].sire_id, result.rows[0].dam_id, id]);
-  const animal = withCategory(result.rows[0]);
+  const animal = withCategory({ ...result.rows[0], status: result.rows[0].archived_at ? "archived" : result.rows[0].status });
   return NextResponse.json({ ...animal, pedigree: { sire: relatives.rows.find((item) => item.id === result.rows[0].sire_id) ?? null, dam: relatives.rows.find((item) => item.id === result.rows[0].dam_id) ?? null, offspring: relatives.rows.filter((item) => item.id !== result.rows[0].sire_id && item.id !== result.rows[0].dam_id) } });
 }
 

@@ -44,7 +44,7 @@ export async function PUT(request: Request, { params }: Context) {
   const performedBy = typeof body.performed_by === "string" ? body.performed_by.trim() : "";
   const details = typeof body.details === "string" ? body.details.trim() : "";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate) || eventDate > new Date().toISOString().slice(0, 10)) return NextResponse.json({ error: "Valid breeding date is required" }, { status: 400 });
-  if (performedBy.length > 150 || details.length > 10000) return NextResponse.json({ error: "Handler or notes exceed allowed length" }, { status: 400 });
+  if (performedBy.length > 150 || details.length > 50) return NextResponse.json({ error: "Handler or notes exceed allowed length" }, { status: 400 });
 
   const result = await db.query(`UPDATE breeding_records SET event_date = $1, performed_by = $2, details = $3, updated_at = NOW()
     WHERE id = $4 AND archived_at IS NULL AND event_type IN ('natural_service', 'artificial_insemination') RETURNING id`, [eventDate, performedBy || null, details || null, id]);

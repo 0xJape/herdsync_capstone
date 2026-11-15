@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { breedingEligibility, dateString, gestationStage } from "@/lib/breeding-rules";
 import { db } from "@/lib/db";
 import { withCategory } from "@/lib/livestock";
+import { releaseExpiredQuarantines } from "@/lib/quarantine";
 import { NextRequest, NextResponse } from "next/server";
 
 const DEFAULT_PAGE_SIZE = 7;
@@ -133,7 +134,8 @@ const listSql: Record<ListName, { rows: string; count: string }> = {
   },
   calvingHistory: {
     rows: `SELECT e.id, e.pregnancy_confirmation_id pregnancy_id, e.birth_date, e.calving_difficulty, e.twins, e.notes, d.id dam_id, d.tag_number dam_tag, d.name dam_name,
-      COUNT(o.id)::int calf_count, STRING_AGG(COALESCE(o.name, o.outcome), ', ' ORDER BY o.birth_order) calves
+      COUNT(o.id)::int calf_count, STRING_AGG(COALESCE(o.name, o.outcome), ', ' ORDER BY o.birth_order) calves,
+      STRING_AGG(o.outcome, ', ' ORDER BY o.birth_order) calf_statuses
       FROM calving_events e JOIN livestock d ON d.id = e.dam_id LEFT JOIN calving_outcomes o ON o.calving_event_id = e.id
       WHERE d.archived_at IS NULL AND ($1 = '' OR d.tag_number ILIKE '%' || $1 || '%')
       GROUP BY e.id, d.id ORDER BY e.birth_date DESC, e.id DESC LIMIT $2 OFFSET $3`,
@@ -199,6 +201,7 @@ const listSql: Record<ListName, { rows: string; count: string }> = {
 
 export async function GET(request: NextRequest) {
   const auth = await requireRole("veterinarian", "farm_aide"); if ("response" in auth) return auth.response;
+  await releaseExpiredQuarantines();
   const search = request.nextUrl.searchParams.get("search")?.trim() ?? "";
   const requestedList = request.nextUrl.searchParams.get("list") ?? "pregnancies";
   if (!listNames.includes(requestedList as ListName)) return NextResponse.json({ error: "Unknown breeding list" }, { status: 400 });

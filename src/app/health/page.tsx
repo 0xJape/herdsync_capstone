@@ -224,12 +224,7 @@ export default function HealthPage() {
         (recordType === "all" || record.record_type === recordType) &&
         (!dateFrom || dateOnly(record.record_date) >= dateFrom) &&
         (!dateTo || dateOnly(record.record_date) <= dateTo),
-      ).sort((a, b) => {
-        const end = addDays(today(), 7);
-        const priority = (record: HealthRecord) => [record.follow_up_date, record.next_due_date]
-          .some((date) => !!date && dateOnly(date) >= today() && dateOnly(date) <= end) ? 0 : 1;
-        return priority(a) - priority(b) || dateOnly(b.record_date).localeCompare(dateOnly(a.record_date));
-      }),
+      ).sort((a, b) => b.id - a.id),
     [records, status, recordType, dateFrom, dateTo],
   );
   const recordTypes = ["all", "checkup", "vaccination", "vitamins", "antibiotics", "anti_inflammatory", "dewormer"];
@@ -260,7 +255,7 @@ export default function HealthPage() {
               record.follow_up_date && {
                 record,
                 date: dateOnly(record.follow_up_date),
-                label: "Follow-up",
+                label: record.record_type === "quarantine_clearance" ? "Admission veterinary review" : "Follow-up",
               },
               record.next_due_date && {
                 record,
@@ -719,7 +714,7 @@ export default function HealthPage() {
                     <span>{record.livestock_name || "Unnamed animal"}</span>
                   </td>
                   <td><span className={`clinical-record-type health-type-${record.record_type}`}>{titleCase(record.record_type)}</span></td>
-                  <td>{record.added_by || "Unknown"}</td>
+                  <td>{record.veterinarian || record.added_by || "Unknown"}</td>
                   <td><time dateTime={record.record_date}>
                     {formatDate(record.record_date)}
                   </time></td>

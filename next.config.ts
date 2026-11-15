@@ -6,6 +6,7 @@ const scriptSrc = process.env.NODE_ENV === "production"
   : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   allowedDevOrigins: ["192.168.1.61", "herdsync.dotenvlabs.me"],
   poweredByHeader: false,
   async redirects() {

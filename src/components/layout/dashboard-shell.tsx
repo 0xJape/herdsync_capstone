@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BarChart3, Bell, Beef, CalendarClock, FileText, HeartPulse, LayoutDashboard, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Stethoscope, Sun, Users, Workflow, X } from "lucide-react";
+import { Activity, Baby, BarChart3, Bell, Beef, Dna, FileText, HeartPulse, LayoutDashboard, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, ScanHeart, Sun, Users, Workflow, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -95,7 +95,7 @@ export function DashboardShell({ title, children }: { title: string; eyebrow?: s
       <nav aria-label="Main navigation" className="sidebar-navigation">
           { ["Overview", "Herd care", "Administration", "Tools"].map((group) => { const items = navigation.filter(([, , href]) => linkGroup(href) === group); return items.length ? <section className="nav-group" key={group} aria-labelledby={`nav-${group.replace(" ", "-").toLowerCase()}`}><p className="nav-heading" id={`nav-${group.replace(" ", "-").toLowerCase()}`}>{group}</p>{items.map(([label, Icon, href]) => <div key={href}><Link href={href} aria-label={label} aria-current={pathname === href ? "page" : undefined} data-tooltip={`Open ${label.toLowerCase()}`} data-tooltip-side="right" className={pathname === href ? "nav-link nav-active" : "nav-link"}>
           <Icon size={18} aria-hidden="true" className="shrink-0" /><span className="sidebar-label">{label}</span>
-        </Link>{href === "/reproduction" && open && <div className="nav-group-nested" aria-label="Reproduction sections">{([["Breeding", CalendarClock, "breeding"], ["Pregnancy", Stethoscope, "pregnancy"], ["Calving", Beef, "calving"]] as const).map(([tabLabel, TabIcon, tab]) => <Link key={tab} href={`/reproduction?tab=${tab}`} aria-current={pathname === "/reproduction" && reproductionTab === tab ? "page" : undefined} className={pathname === "/reproduction" && reproductionTab === tab ? "nav-link nav-active" : "nav-link"}><TabIcon size={16} aria-hidden="true" className="shrink-0" /><span className="sidebar-label">{tabLabel}</span></Link>)}</div>}</div>)}</section> : null; })}
+        </Link>{href === "/reproduction" && open && <div className="nav-group-nested" aria-label="Reproduction sections">{([["Breeding", Dna, "breeding"], ["Pregnancy", ScanHeart, "pregnancy"], ["Calving", Baby, "calving"]] as const).map(([tabLabel, TabIcon, tab]) => <Link key={tab} href={`/reproduction?tab=${tab}`} aria-current={pathname === "/reproduction" && reproductionTab === tab ? "page" : undefined} className={pathname === "/reproduction" && reproductionTab === tab ? "nav-link nav-active" : "nav-link"}><TabIcon size={16} aria-hidden="true" className="shrink-0" /><span className="sidebar-label">{tabLabel}</span></Link>)}</div>}</div>)}</section> : null; })}
       </nav>
     </aside>
     <section className={open ? "dashboard-main" : "dashboard-main dashboard-main-collapsed"}>

@@ -14,7 +14,8 @@ export async function GET(request: Request) {
   const urgency = searchParams.get("urgency")?.trim() ?? "";
   const pageSize = 7;
   const careSchedule = `
-    SELECT h.id, h.livestock_id, h.record_type, h.follow_up_date AS due_date, 'Follow-up' AS title
+    SELECT h.id, h.livestock_id, h.record_type, h.follow_up_date AS due_date,
+      CASE WHEN h.record_type = 'quarantine_clearance' THEN 'Admission veterinary review' ELSE 'Follow-up' END AS title
     FROM health_records h WHERE h.archived_at IS NULL AND h.status = 'open' AND h.follow_up_date IS NOT NULL
     UNION ALL
     SELECT h.id, h.livestock_id, h.record_type, h.next_due_date, 'Next due'

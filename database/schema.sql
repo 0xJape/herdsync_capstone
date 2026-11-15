@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS livestock (
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'sold', 'culled', 'deceased', 'transferred_out')),
   acquisition_date DATE,
   acquisition_type VARCHAR(30) NOT NULL DEFAULT 'born_on_farm' CHECK (acquisition_type IN ('born_on_farm','purchased','donated','transferred_in')),
+  quarantine_status VARCHAR(20) NOT NULL DEFAULT 'not_required' CHECK (quarantine_status IN ('not_required', 'active', 'released')),
   notes TEXT,
   purchased BOOLEAN NOT NULL DEFAULT FALSE,
   has_calved BOOLEAN NOT NULL DEFAULT FALSE,
@@ -55,6 +56,7 @@ CREATE INDEX IF NOT EXISTS livestock_created_at_idx ON livestock (created_at);
 CREATE INDEX IF NOT EXISTS livestock_sire_idx ON livestock (sire_id) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS livestock_dam_idx ON livestock (dam_id) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS livestock_active_sex_birth_idx ON livestock (sex, status, birth_date) WHERE archived_at IS NULL;
+CREATE INDEX IF NOT EXISTS livestock_active_quarantine_idx ON livestock (quarantine_status) WHERE quarantine_status = 'active' AND archived_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS users (
   id BIGSERIAL PRIMARY KEY,
@@ -91,6 +93,10 @@ ALTER TABLE livestock ADD COLUMN IF NOT EXISTS acquisition_type VARCHAR(30) NOT 
 ALTER TABLE livestock ADD COLUMN IF NOT EXISTS previous_farm VARCHAR(200);
 ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_acquisition_type_check;
 ALTER TABLE livestock ADD CONSTRAINT livestock_acquisition_type_check CHECK (acquisition_type IN ('born_on_farm','purchased','donated','transferred_in'));
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS quarantine_status VARCHAR(20) NOT NULL DEFAULT 'not_required';
+ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_quarantine_status_check;
+ALTER TABLE livestock ADD CONSTRAINT livestock_quarantine_status_check CHECK (quarantine_status IN ('not_required', 'active', 'pending_clearance', 'released'));
+CREATE INDEX IF NOT EXISTS livestock_active_quarantine_idx ON livestock (quarantine_status) WHERE quarantine_status = 'active' AND archived_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS health_records (
   id BIGSERIAL PRIMARY KEY,

@@ -21,7 +21,8 @@ export async function POST(request: NextRequest, context: Context) {
   const score = Number(body.score);
   if (!validDate(body.measured_at)) return NextResponse.json({ error: "Valid non-future measurement date is required" }, { status: 400 });
   if (!Number.isInteger(score) || score < 1 || score > 6) return NextResponse.json({ error: "BCS must be a whole number from 1 to 6" }, { status: 400 });
-  if (typeof body.notes === "string" && body.notes.length > 10000 || typeof body.recorded_by === "string" && body.recorded_by.length > 150) return NextResponse.json({ error: "Text field is too long" }, { status: 400 });
+  if (typeof body.notes === "string" && body.notes.length > 50) return NextResponse.json({ error: "Notes must be at most 50 characters" }, { status: 400 });
+  if (typeof body.recorded_by === "string" && body.recorded_by.length > 150) return NextResponse.json({ error: "Recorded by is too long" }, { status: 400 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");

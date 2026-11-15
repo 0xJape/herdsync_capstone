@@ -3,14 +3,43 @@ import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const schedule = `
-  SELECT h.id, h.livestock_id, h.record_type, h.follow_up_date due_date, 'follow_up' alert_type, 'Clinical follow-up' title
+  SELECT h.id, h.livestock_id, h.record_type, h.follow_up_date due_date, 'follow_up' alert_type,
+    CASE WHEN h.record_type = 'quarantine_clearance' THEN 'Admission veterinary review' ELSE 'Clinical follow-up' END title
   FROM health_records h WHERE h.archived_at IS NULL AND h.status = 'open' AND h.follow_up_date IS NOT NULL
   UNION ALL
   SELECT h.id, h.livestock_id, h.record_type, h.next_due_date, 'next_due', CASE h.record_type WHEN 'vitamins' THEN 'Vitamin care due' WHEN 'vaccination' THEN 'Vaccination due' ELSE 'Deworming due' END
   FROM health_records h WHERE h.archived_at IS NULL AND h.record_type IN ('vaccination','vitamins','dewormer') AND h.next_due_date IS NOT NULL
   UNION ALL
   SELECT h.id, h.livestock_id, h.record_type, h.withdrawal_end_date, 'withdrawal_end', 'Withdrawal ends'
-  FROM health_records h WHERE h.archived_at IS NULL AND h.withdrawal_end_date >= CURRENT_DATE`;
+  FROM health_records h WHERE h.archived_at IS NULL AND h.withdrawal_end_date >= CURRENT_DATE
+  UNION ALL
+  SELECT b.id, b.livestock_id, 'breeding' record_type, b.event_date + 45, 'pregnancy_check', 'Breeding pregnancy check due'
+  FROM breeding_records b
+  WHERE b.archived_at IS NULL
+    AND b.event_type IN ('natural_service', 'artificial_insemination')
+    AND b.event_date + 45 <= CURRENT_DATE
+    AND NOT EXISTS (
+      SELECT 1 FROM breeding_records outcome
+      WHERE outcome.source_service_id = b.id
+        AND outcome.event_type IN ('pregnancy_confirmed', 'pregnancy_negative')
+        AND outcome.archived_at IS NULL
+    )
+  UNION ALL
+  SELECT confirmation.id, confirmation.livestock_id, 'breeding' record_type,
+    COALESCE(confirmation.expected_calving_date, service.expected_calving_date, service.event_date + 283),
+    'calving_due', 'Calving due'
+  FROM breeding_records confirmation
+  JOIN breeding_records service ON service.id = confirmation.source_service_id
+  WHERE confirmation.archived_at IS NULL
+    AND service.archived_at IS NULL
+    AND confirmation.event_type = 'pregnancy_confirmed'
+    AND COALESCE(confirmation.expected_calving_date, service.expected_calving_date, service.event_date + 283) <= CURRENT_DATE
+    AND NOT EXISTS (
+      SELECT 1 FROM breeding_records outcome
+      WHERE outcome.source_service_id = service.id
+        AND outcome.event_type IN ('calving', 'pregnancy_loss')
+        AND outcome.archived_at IS NULL
+    )`;
 
 export async function GET() {
   const auth = await requireRole("veterinarian", "farm_aide");
@@ -22,8 +51,10 @@ export async function GET() {
         WHEN s.due_date <= CURRENT_DATE + 7 THEN 'upcoming' ELSE 'later' END status,
       a.acknowledged_at AS "acknowledgedAt"
     FROM schedule s JOIN livestock l ON l.id = s.livestock_id
-    LEFT JOIN alert_acknowledgements a ON a.user_id = $1 AND a.health_record_id = s.id AND a.alert_type = s.alert_type
-    WHERE l.archived_at IS NULL ORDER BY s.due_date, s.id DESC`, [auth.user.id]);
+    LEFT JOIN alert_acknowledgements a ON s.alert_type NOT IN ('pregnancy_check', 'calving_due') AND a.user_id = $1 AND a.health_record_id = s.id AND a.alert_type = s.alert_type
+    WHERE l.archived_at IS NULL
+      AND (s.record_type <> 'quarantine_clearance' OR $2 = 'veterinarian')
+    ORDER BY s.due_date, s.id DESC`, [auth.user.id, auth.user.role]);
   return NextResponse.json(result.rows, { headers: { "Cache-Control": "no-store" } });
 }
 

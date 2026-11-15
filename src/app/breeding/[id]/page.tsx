@@ -28,6 +28,13 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
   const [confirmedBy, setConfirmedBy] = useState("");
   const load = useCallback(async () => { const response = await fetch(`/api/breeding/${id}`, { cache: "no-store" }); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Breeding record could not load"); setData(body); }, [id]);
   useEffect(() => { queueMicrotask(() => load().catch((reason) => setError(reason instanceof Error ? reason.message : "Breeding record could not load"))); }, [load]);
+  useEffect(() => {
+    const notes = document.querySelector<HTMLTextAreaElement>(".pregnancy-outcome-form textarea");
+    if (!notes) return;
+    notes.maxLength = 50;
+    const label = notes.closest("label");
+    if (label?.firstChild?.nodeType === Node.TEXT_NODE) label.firstChild.textContent = "Notes (50 characters max)";
+  }, [data]);
 
   async function recordOutcome(confirmed: boolean) {
     if (!data) return;
@@ -48,7 +55,6 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
   if (error && !data) return <div className="breeding-record-page"><Link href={returnTo} className="secondary-button"><ArrowLeft size={16}/> Back to breeding</Link><p role="alert" className="cattle-error">{error}</p></div>;
   if (!data) return <p>Loading breeding record…</p>;
   const { record, related } = data;
-  const serviceIndex = related.findIndex((item) => item.id === record.id);
   const outcome = related.find((item) => String(item.source_service_id) === String(record.id));
   const resolved = Boolean(outcome);
   const unsuccessful = outcome?.event_type === "pregnancy_negative";

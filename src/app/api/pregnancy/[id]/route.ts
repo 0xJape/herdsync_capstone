@@ -45,7 +45,8 @@ async function completedCalving(id: number) {
 
 async function calvingHistory(livestockId: number) {
   const result = await db.query(`SELECT e.id, e.pregnancy_confirmation_id pregnancy_id, e.birth_date, e.calving_difficulty, e.twins, e.notes,
-      COUNT(o.id)::int calf_count, STRING_AGG(COALESCE(calf.tag_number, o.name, o.outcome), ', ' ORDER BY o.birth_order) calves
+      COUNT(o.id)::int calf_count, STRING_AGG(COALESCE(calf.tag_number, o.name, o.outcome), ', ' ORDER BY o.birth_order) calves,
+      STRING_AGG(o.outcome, ', ' ORDER BY o.birth_order) calf_statuses
     FROM calving_events e
     LEFT JOIN calving_outcomes o ON o.calving_event_id = e.id
     LEFT JOIN livestock calf ON calf.id = o.livestock_id
@@ -98,8 +99,8 @@ export async function POST(request: NextRequest, { params }: Context) {
   let body: Record<string, unknown>; try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const month = Number(body.gestation_month), bcs = Number(body.body_condition_score), weight = Number(body.weight_kg), status = String(body.health_status);
   if (!validDate(body.checkup_date, true)) return NextResponse.json({ error: "Valid checkup date is required" }, { status: 400 });
-  if (!Number.isSafeInteger(month) || month < 1 || month > 10 || !Number.isFinite(bcs) || bcs < 1 || bcs > 5 || !Number.isFinite(weight) || weight <= 0) return NextResponse.json({ error: "Month, BCS, and positive weight are required" }, { status: 400 });
-  if (!["excellent", "good", "fair", "poor"].includes(status) || !text(body.veterinarian, 150, true) || !text(body.findings, 10000, true)) return NextResponse.json({ error: "Status, veterinarian, and findings are required" }, { status: 400 });
+  if (!Number.isSafeInteger(month) || month < 1 || month > 10 || !Number.isFinite(bcs) || bcs < 1 || bcs > 6 || !Number.isFinite(weight) || weight <= 0 || weight > 1000) return NextResponse.json({ error: "Month, BCS from 1 to 6, and weight up to 1000 kg are required" }, { status: 400 });
+  if (!["excellent", "good", "fair", "poor"].includes(status) || !text(body.veterinarian, 150, true) || !text(body.findings, 50, true)) return NextResponse.json({ error: "Status, veterinarian, and findings up to 50 characters are required" }, { status: 400 });
   const today = new Date().toISOString().slice(0, 10);
   if (String(body.checkup_date) !== today) return NextResponse.json({ error: "Monthly checkups can only be logged on the actual logging date" }, { status: 409 });
   const pregnancy = await activePregnancy(id); if (!pregnancy) return NextResponse.json({ error: "No active confirmed pregnancy found" }, { status: 409 });

@@ -21,8 +21,9 @@ export async function POST(request: NextRequest, context: Context) {
   let body: Record<string, unknown>; try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const weight = Number(body.weight_kg);
   if (!validDate(body.measured_at)) return NextResponse.json({ error: "Valid measurement date is required" }, { status: 400 });
-  if (!Number.isFinite(weight) || weight <= 0) return NextResponse.json({ error: "Weight must be greater than 0 kg" }, { status: 400 });
-  if (!validText(body.notes, 10000) || !validText(body.recorded_by, 150)) return NextResponse.json({ error: "Text field is too long" }, { status: 400 });
+  if (!Number.isFinite(weight) || weight <= 0 || weight > 1000) return NextResponse.json({ error: "Weight must be between 0.01 and 1,000 kg" }, { status: 400 });
+  if (!validText(body.notes, 50)) return NextResponse.json({ error: "Notes must be at most 50 characters" }, { status: 400 });
+  if (!validText(body.recorded_by, 150)) return NextResponse.json({ error: "Recorded by is too long" }, { status: 400 });
   const animal = await db.query("SELECT tag_number, status FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
   if (!animal.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
   if (animal.rows[0].status !== "active") return NextResponse.json({ error: "Inactive cattle cannot receive new records" }, { status: 409 });

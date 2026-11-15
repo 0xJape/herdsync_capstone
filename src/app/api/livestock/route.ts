@@ -2,12 +2,15 @@ import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { cattleCategory, livestockFields, normalizeLivestock, validateLivestock, withCategory } from "@/lib/livestock";
+import { releaseExpiredQuarantines } from "@/lib/quarantine";
 
 export async function GET(request: NextRequest) {
   const auth = await requireRole("veterinarian", "farm_aide", "faculty"); if ("response" in auth) return auth.response;
+  await releaseExpiredQuarantines();
   const search = request.nextUrl.searchParams.get("search")?.trim() ?? "";
-  const result = await db.query(`SELECT * FROM livestock WHERE archived_at IS NULL AND ($1 = '' OR tag_number ILIKE '%' || $1 || '%' OR COALESCE(name, '') ILIKE '%' || $1 || '%' OR breed ILIKE '%' || $1 || '%') ORDER BY created_at DESC`, [search]);
-  return NextResponse.json(result.rows.map(withCategory));
+  const includeArchived = request.nextUrl.searchParams.get("include_archived") === "true";
+  const result = await db.query(`SELECT livestock.*, CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE status END display_status FROM livestock WHERE ($2 OR archived_at IS NULL) AND ($1 = '' OR tag_number ILIKE '%' || $1 || '%' OR COALESCE(name, '') ILIKE '%' || $1 || '%' OR breed ILIKE '%' || $1 || '%') ORDER BY created_at DESC`, [search, includeArchived]);
+  return NextResponse.json(result.rows.map((row) => withCategory({ ...row, status: row.display_status })));
 }
 
 export async function POST(request: NextRequest) {
@@ -16,8 +19,10 @@ export async function POST(request: NextRequest) {
   const body = normalizeLivestock(raw);
   body.status = "active";
   body.acquisition_type ??= body.purchased === true ? "purchased" : "born_on_farm";
+  body.quarantine_status = body.acquisition_type === "born_on_farm" ? "not_required" : "active";
   const error = validateLivestock(body);
   if (error) return NextResponse.json({ error }, { status: 400 });
+  if (body.name) { const duplicate = await db.query("SELECT 1 FROM livestock WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND archived_at IS NULL LIMIT 1", [body.name]); if (duplicate.rowCount) return NextResponse.json({ error: "Cattle name already exists" }, { status: 409 }); }
   const pregnant = raw.currently_pregnant === true;
   if (pregnant && body.sex !== "female") return NextResponse.json({ error: "Only female cattle can be registered as pregnant" }, { status: 400 });
   if (pregnant && cattleCategory(body.sex, body.birth_date) === "Calf") return NextResponse.json({ error: "A calf cannot be registered as pregnant" }, { status: 400 });
