@@ -34,7 +34,7 @@ export function DashboardShell({ title, children }: { title: string; eyebrow?: s
   const [open, setOpen] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState("");
-  const [user, setUser] = useState<{ display_name: string; role: Role } | null>(null);
+  const [user, setUser] = useState<{ display_name: string; role: Role; profile_image_url: string | null } | null>(null);
   const [alertCount, setAlertCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -50,8 +50,17 @@ export function DashboardShell({ title, children }: { title: string; eyebrow?: s
     const frame = requestAnimationFrame(() => {
       try { setOpen(localStorage.getItem("herdsync-sidebar") !== "collapsed"); } catch { /* Keep expanded when storage is unavailable. */ }
     });
-    fetch("/api/auth/me").then((response) => response.ok ? response.json() : null).then(setUser).catch(() => null);
-    return () => cancelAnimationFrame(frame);
+    const updateUser = (event?: Event) => {
+      const profileImageUrl = (event as CustomEvent<{ profileImageUrl?: string }> | undefined)?.detail?.profileImageUrl;
+      if (profileImageUrl) { setUser((current) => current ? { ...current, profile_image_url: profileImageUrl } : current); return; }
+      void Promise.all([
+        fetch(`/api/auth/me?t=${Date.now()}`, { cache: "no-store" }).then((response) => response.ok ? response.json() : null),
+        fetch(`/api/settings?t=${Date.now()}`, { cache: "no-store" }).then((response) => response.ok ? response.json() : null),
+      ]).then(([account, settings]) => setUser(account ? { ...account, profile_image_url: settings?.profileImageUrl ?? account.profile_image_url ?? null } : null)).catch(() => null);
+    };
+    void updateUser();
+    window.addEventListener("herdsync-profile", updateUser);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("herdsync-profile", updateUser); };
   }, []);
   useEffect(() => {
     if (user && !access[user.role].some((href) => pathname === href || pathname.startsWith(`${href}/`))) router.replace(access[user.role][0]);
@@ -104,7 +113,7 @@ export function DashboardShell({ title, children }: { title: string; eyebrow?: s
           <button onClick={toggleSidebar} aria-controls="workspace-sidebar" aria-expanded={open} aria-label={open ? "Collapse sidebar" : "Expand sidebar"} data-tooltip={open ? "Collapse navigation" : "Expand navigation"} className="icon-button shrink-0">{open ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button>
           <div>{pathname.includes("/") && pathname.split("/").filter(Boolean).length > 1 && <nav className="dashboard-breadcrumbs" aria-label="Breadcrumb"><Link href="/dashboard" data-tooltip="Go to Dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href={pathname.startsWith("/livestock/") ? "/livestock" : pathname.startsWith("/pregnancy/") ? "/reproduction" : pathname.startsWith("/breeding/") ? "/breeding" : "/dashboard"}>{pathname.startsWith("/pregnancy/") ? "Reproduction" : title}</Link><span aria-hidden="true">/</span><span aria-current="page">{pathname.startsWith("/livestock/") ? "Cattle Profile" : pathname.startsWith("/pregnancy/") ? "Reproductive Profile" : pathname.startsWith("/breeding/") ? "Breeding Record" : title}</span></nav>}<h1 className="text-xl font-semibold">{pathname.startsWith("/pregnancy/") ? "Reproduction" : title}</h1></div>
         </div>
-        <div className="header-actions"><time className="header-date" dateTime={new Date().toISOString().slice(0, 10)}>{new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</time>{user && ["veterinarian", "farm_aide"].includes(user.role) && <button type="button" className="icon-button notification-button" aria-label={alertCount ? `View ${alertCount} new notification${alertCount === 1 ? "" : "s"}` : "View notifications"} aria-expanded={notificationsOpen} aria-controls="notification-drawer" data-tooltip={alertCount ? `${alertCount} unacknowledged notification${alertCount === 1 ? "" : "s"}` : "Review herd notifications"} onClick={() => setNotificationsOpen((value) => !value)}><Bell size={18} />{alertCount > 0 && <span className="notification-badge" aria-hidden="true">{alertCount > 99 ? "99+" : alertCount}</span>}</button>}<button onClick={toggleTheme} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} data-tooltip={dark ? "Use light theme" : "Use dark theme"} className="icon-button shrink-0">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>{user && <button onClick={logout} disabled={loggingOut} aria-label={loggingOut ? "Logging out" : "Log out"} data-tooltip={loggingOut ? "Logging out…" : "Log out"} className="icon-button shrink-0">{loggingOut ? <X size={18} /> : <LogOut size={18} />}</button>}{user && <Link href="/settings" className="header-user" aria-label={`Open profile settings for ${user.display_name}`} data-tooltip="Open profile settings" data-tooltip-align="end"><span className="avatar" aria-hidden="true">{user.display_name.charAt(0).toUpperCase()}</span><span><strong>{user.display_name}</strong><small>{roleLabels[user.role]}</small></span></Link>}</div>
+        <div className="header-actions"><time className="header-date" dateTime={new Date().toISOString().slice(0, 10)}>{new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</time>{user && ["veterinarian", "farm_aide"].includes(user.role) && <button type="button" className="icon-button notification-button" aria-label={alertCount ? `View ${alertCount} new notification${alertCount === 1 ? "" : "s"}` : "View notifications"} aria-expanded={notificationsOpen} aria-controls="notification-drawer" data-tooltip={alertCount ? `${alertCount} unacknowledged notification${alertCount === 1 ? "" : "s"}` : "Review herd notifications"} onClick={() => setNotificationsOpen((value) => !value)}><Bell size={18} />{alertCount > 0 && <span className="notification-badge" aria-hidden="true">{alertCount > 99 ? "99+" : alertCount}</span>}</button>}<button onClick={toggleTheme} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} data-tooltip={dark ? "Use light theme" : "Use dark theme"} className="icon-button shrink-0">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>{user && <button onClick={logout} disabled={loggingOut} aria-label={loggingOut ? "Logging out" : "Log out"} data-tooltip={loggingOut ? "Logging out…" : "Log out"} className="icon-button shrink-0">{loggingOut ? <X size={18} /> : <LogOut size={18} />}</button>}{user && <Link href="/settings" className="header-user" aria-label={`Open profile settings for ${user.display_name}`} data-tooltip="Open profile settings" data-tooltip-align="end"><span className="avatar" aria-hidden="true">{user.profile_image_url ? <img src={user.profile_image_url} alt=""/> : user.display_name.charAt(0).toUpperCase()}</span><span><strong>{user.display_name}</strong><small>{roleLabels[user.role]}</small></span></Link>}</div>
       </header>
       <div className="dashboard-content">{error && <p role="alert" className="panel">{error}</p>}{children}</div>
     </section>

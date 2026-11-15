@@ -11,9 +11,9 @@ export async function GET() {
   const visibleKeys = auth.user.role === "veterinarian" ? Object.keys(defaults) : ["report_left_logo", "report_right_logo"];
   const [settings, preferences] = await Promise.all([
     db.query("SELECT key, value, updated_at AS \"updatedAt\" FROM system_settings WHERE key = ANY($1)", [visibleKeys]),
-    db.query("SELECT notify_health_alerts, notify_activity_digest FROM users WHERE id = $1", [auth.user.id]),
+    db.query("SELECT notify_health_alerts, notify_activity_digest, profile_image_url FROM users WHERE id = $1", [auth.user.id]),
   ]);
-  return NextResponse.json({ ...defaults, ...Object.fromEntries(settings.rows.map((row) => [row.key, row.value])), updatedAt: settings.rows.reduce((latest, row) => row.updatedAt > latest ? row.updatedAt : latest, null), canManageSystem: auth.user.role === "veterinarian", email: auth.user.email, displayName: auth.user.display_name, notify_health_alerts: preferences.rows[0]?.notify_health_alerts ?? true, notify_activity_digest: preferences.rows[0]?.notify_activity_digest ?? true }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ...defaults, ...Object.fromEntries(settings.rows.map((row) => [row.key, row.value])), updatedAt: settings.rows.reduce((latest, row) => row.updatedAt > latest ? row.updatedAt : latest, null), canManageSystem: auth.user.role === "veterinarian", email: auth.user.email, displayName: auth.user.display_name, profileImageUrl: preferences.rows[0]?.profile_image_url ?? null, notify_health_alerts: preferences.rows[0]?.notify_health_alerts ?? true, notify_activity_digest: preferences.rows[0]?.notify_activity_digest ?? true }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(request: NextRequest) {

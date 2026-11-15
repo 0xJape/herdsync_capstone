@@ -14,11 +14,12 @@ export async function GET(request: NextRequest) {
   const where: string[] = [];
   if (query) { values.push(`%${query}%`); where.push(`(a.title ILIKE $${values.length} OR a.detail ILIKE $${values.length} OR u.display_name ILIKE $${values.length})`); }
   if (action !== "all") { values.push(action); where.push(`a.action = $${values.length}`); }
-  if (entity !== "all") { values.push(entity); where.push(`a.entity_type = $${values.length}`); }
+  if (entity === "breeding") where.push("a.entity_type IN ('breeding', 'pregnancy_checkup', 'calving_event')");
+  else if (entity !== "all") { values.push(entity); where.push(`a.entity_type = $${values.length}`); }
   const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
   values.push(20, (page - 1) * 20);
   const [result, summary] = await Promise.all([db.query(`SELECT a.id, a.action, a.entity_type AS "entityType", a.entity_id AS "entityId", a.title,
-      COALESCE(a.detail, '—') detail, COALESCE(u.display_name, 'System') actor,
+      COALESCE(a.detail, '—') detail, COALESCE(u.display_name, 'System') actor, u.profile_image_url AS "actorImageUrl",
       COALESCE(u.email, 'System generated') AS "actorEmail", a.created_at AS "createdAt",
       COUNT(*) OVER()::int total
     FROM activity_logs a LEFT JOIN users u ON u.id = a.user_id

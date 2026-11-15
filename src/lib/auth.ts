@@ -9,7 +9,7 @@ export const SESSION_COOKIE = "herdsync_session";
 export const SESSION_SECONDS = 7 * 24 * 60 * 60;
 
 export type Role = "admin" | "veterinarian" | "farm_aide" | "faculty";
-export type SessionUser = { id: string; email: string; display_name: string; role: Role };
+export type SessionUser = { id: string; email: string; display_name: string; role: Role; profile_image_url: string | null };
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -47,7 +47,7 @@ export async function clearSessionCookie() {
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const result = await db.query<SessionUser>(`SELECT u.id, u.email, u.display_name, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > NOW() AND u.active`, [hashSessionToken(token)]);
+  const result = await db.query<SessionUser>(`SELECT u.id, u.email, u.display_name, u.role, u.profile_image_url FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > NOW() AND u.active`, [hashSessionToken(token)]);
   return result.rows[0] ?? null;
 }
 

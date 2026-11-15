@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx ON users (LOWER(email));
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_health_alerts BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_activity_digest BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
 
 CREATE INDEX IF NOT EXISTS users_active_idx ON users (active);
 
