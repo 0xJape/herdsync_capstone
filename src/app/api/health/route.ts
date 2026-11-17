@@ -52,6 +52,8 @@ export async function POST(request: NextRequest) {
   if (!healthRecordTypes.has(recordType)) return NextResponse.json({ error: "Invalid record type" }, { status: 400 });
   const scheduledFromId = Number(body.scheduled_from_id);
   if (body.scheduled_from_id != null && (!Number.isSafeInteger(scheduledFromId) || scheduledFromId < 1 || livestockIds.length !== 1)) return NextResponse.json({ error: "Invalid scheduled care source" }, { status: 400 });
+  const calfCarePlanId = Number(body.calf_care_plan_id);
+  if (body.calf_care_plan_id != null && (!Number.isSafeInteger(calfCarePlanId) || calfCarePlanId < 1 || livestockIds.length !== 1 || recordType !== "checkup")) return NextResponse.json({ error: "Invalid calf care plan" }, { status: 400 });
   const reviewedFromId = Number(body.reviewed_from_id);
   if (["antibiotics", "anti_inflammatory"].includes(recordType)) {
     const restriction = await db.query("SELECT id FROM health_records WHERE livestock_id = ANY($1::bigint[]) AND record_type IN ('antibiotics','anti_inflammatory') AND archived_at IS NULL AND (status = 'open' OR withdrawal_end_date >= CURRENT_DATE) ORDER BY id DESC LIMIT 1", [livestockIds]);
@@ -78,6 +80,11 @@ export async function POST(request: NextRequest) {
       const source = await client.query("SELECT id FROM health_records WHERE id = $1 AND livestock_id = $2 AND record_type = $3 AND next_due_date IS NOT NULL AND archived_at IS NULL FOR UPDATE", [scheduledFromId, livestockIds[0], recordType]);
       if (!source.rowCount) throw new Error("SCHEDULED_CARE_NOT_FOUND");
       await client.query("UPDATE health_records SET next_due_date = NULL, updated_at = NOW() WHERE id = $1", [scheduledFromId]);
+    }
+    if (Number.isSafeInteger(calfCarePlanId)) {
+      const plan = await client.query("SELECT id FROM calf_care_plans WHERE id = $1 AND livestock_id = $2 AND status = 'pending' FOR UPDATE", [calfCarePlanId, livestockIds[0]]);
+      if (!plan.rowCount) throw new Error("CALF_CARE_PLAN_NOT_FOUND");
+      await client.query("UPDATE calf_care_plans SET status = 'completed', completed_at = NOW() WHERE id = $1", [calfCarePlanId]);
     }
     if (administeredCareTypes.has(recordType)) {
       await client.query(
@@ -114,6 +121,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     await client.query("ROLLBACK");
     if (error instanceof Error && error.message === "SCHEDULED_CARE_NOT_FOUND") return NextResponse.json({ error: "Scheduled care record not found" }, { status: 404 });
+    if (error instanceof Error && error.message === "CALF_CARE_PLAN_NOT_FOUND") return NextResponse.json({ error: "Calf care plan not found or already completed" }, { status: 404 });
     if (error instanceof Error && error.message.startsWith("DUPLICATE_HEALTH_RECORD:")) return NextResponse.json({ error: "This health record was already saved. Refresh before trying again." }, { status: 409 });
     throw error;
   } finally { client.release(); }

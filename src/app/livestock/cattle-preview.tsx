@@ -1,9 +1,8 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
-import { ContactShadows, OrbitControls, useGLTF } from "@react-three/drei";
-import { useEffect, useMemo } from "react";
-import * as THREE from "three";
+import { ImagePlus, Pencil, X } from "lucide-react";
+import { useEffect, useState, type ChangeEvent } from "react";
+import ImageCropModal from "@/components/ui/image-crop-modal";
 
 export const markingPresets = [
   { label: "Cream", value: "#f1eee5" },
@@ -14,99 +13,72 @@ export const markingPresets = [
   { label: "Golden", value: "#c89442" },
 ];
 
-const modelPaths: Record<string, string> = {
-  Calf: "/models/calf-textured.glb",
-  Heifer: "/models/heifer-textured.glb",
-  Cow: "/models/adult-cow-textured.glb",
-  "Yearling bull": "/models/yearling-bull-textured.glb",
-  Bull: "/models/adult-bull-textured.glb",
+type Props = {
+  marking?: string;
+  category?: string;
+  photos?: string[];
+  onPhotosChange?: (photos: string[]) => void | Promise<void>;
+  onPhotoAdd?: (image: string) => Promise<void>;
+  onEdit?: () => void;
 };
 
-function GrassGround() {
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 256;
-    const context = canvas.getContext("2d");
-    if (!context) return null;
-    context.fillStyle = "#7da755";
-    context.fillRect(0, 0, 256, 256);
-    let seed = 17;
-    for (let index = 0; index < 1800; index++) {
-      seed = seed * 16807 % 2147483647;
-      const x = seed % 256;
-      seed = seed * 16807 % 2147483647;
-      const y = seed % 256;
-      seed = seed * 16807 % 2147483647;
-      context.fillStyle = seed % 3 === 0 ? "#547d3e" : seed % 2 === 0 ? "#94ba61" : "#6d964b";
-      context.fillRect(x, y, 1, 2 + seed % 4);
-    }
-    const result = new THREE.CanvasTexture(canvas);
-    result.wrapS = result.wrapT = THREE.RepeatWrapping;
-    result.repeat.set(8, 8);
-    result.colorSpace = THREE.SRGBColorSpace;
-    return result;
-  }, []);
-  return <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -.035, 0]} receiveShadow>
-    <planeGeometry args={[8, 8]} />
-    <meshStandardMaterial map={texture} color="#8aaa61" roughness={1} />
-  </mesh>;
-}
-
-function CattleModel({ color, path }: { color: string; path: string }) {
-  const { scene } = useGLTF(path);
-  const cloned = useMemo(() => {
-    const copy = scene.clone(true);
-    copy.traverse((object) => {
-      if (object instanceof THREE.Mesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
-        object.material = Array.isArray(object.material)
-          ? object.material.map((material) => material.clone())
-          : object.material.clone();
-      }
-    });
-    const bounds = new THREE.Box3().setFromObject(copy);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
-    const largestSide = Math.max(size.x, size.y, size.z) || 1;
-    copy.position.sub(center);
-    copy.scale.setScalar(1.15 / largestSide);
-    const floorBounds = new THREE.Box3().setFromObject(copy);
-    copy.position.y -= floorBounds.min.y + 0.03;
-    return copy;
-  }, [scene]);
+export default function CattlePreview({ photos = [], onPhotosChange, onPhotoAdd, onEdit }: Props) {
+  const [error, setError] = useState("");
+  const [localPhotos, setLocalPhotos] = useState(photos);
+  const [activePhoto, setActivePhoto] = useState(0);
+  const [pending, setPending] = useState<string[]>([]);
+  const [editingPhotos, setEditingPhotos] = useState(false);
+  const currentPhotos = onPhotosChange || onPhotoAdd ? photos : localPhotos;
 
   useEffect(() => {
-    const marking = new THREE.Color(color);
-    cloned.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const partName = `${object.name} ${(object.material as THREE.Material).name}`.toLowerCase();
-      if (/(horn|eye|hoof|foot|leg|nose|snout|mouth|tail|bell|nail)/.test(partName)) return;
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach((material) => {
-        if (!("color" in material) || !(material.color instanceof THREE.Color)) return;
-        material.color.copy(marking);
-      });
-    });
-  }, [cloned, color]);
+    if (currentPhotos.length < 2) return;
+    const timer = window.setInterval(() => setActivePhoto((index) => (index + 1) % currentPhotos.length), 3500);
+    return () => window.clearInterval(timer);
+  }, [currentPhotos.length]);
 
-  return <primitive object={cloned} rotation={[0, -0.35, 0]} />;
-}
+  function addPhotos(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    const oversized = selected.find((file) => file.size > 5 * 1024 * 1024);
+    if (oversized) {
+      setError(`${oversized.name} exceeds 5 MB.`);
+      event.target.value = "";
+      return;
+    }
+    setError("");
+    const files = selected.slice(0, 3 - currentPhotos.length);
+    if (!files.length) return;
+    Promise.all(files.map((file) => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    }))).then(setPending);
+    event.target.value = "";
+  }
 
-export default function CattlePreview({ marking, category }: { marking: string; category: string }) {
-  const color = /^#[0-9a-f]{6}$/i.test(marking) ? marking : "#f1eee5";
-  const modelPath = modelPaths[category] ?? "/models/adult-cow-textured.glb";
-  return <div className="cattle-preview" aria-label={`Cattle preview for ${category || "new cattle"}`}>
-    <Canvas fallback={<div className="cattle-preview-fallback" role="status">3D preview unavailable. Reload to retry.</div>} shadows="percentage" camera={{ position: [0, 0.15, 3.4], fov: 35 }} dpr={[1, 1.5]}>
-      <ambientLight intensity={1.7} />
-      <directionalLight position={[3, 4, 2]} intensity={2.2} castShadow shadow-mapSize={[1024, 1024]} />
-      <GrassGround />
-      <ContactShadows position={[0, -.025, 0]} opacity={.48} scale={3.5} blur={2.4} far={1.8} />
-      <CattleModel key={modelPath} color={color} path={modelPath} />
-      <OrbitControls enablePan={false} autoRotate autoRotateSpeed={0.7} minDistance={2.2} maxDistance={4.5} />
-    </Canvas>
-    <span className="cattle-preview-caption">{category || "Category pending"}</span>
+  async function saveCrop(image: string) {
+    if (onPhotoAdd) {
+      try { await onPhotoAdd(image); setPending((photos) => photos.slice(1)); }
+      catch (cause) { setError(cause instanceof Error ? cause.message : "Photo save failed"); }
+      return;
+    }
+    const next = [...currentPhotos, image];
+    if (onPhotosChange) onPhotosChange(next); else setLocalPhotos(next);
+    setPending((photos) => photos.slice(1));
+  }
+
+  const shownPhoto = currentPhotos[activePhoto] ?? currentPhotos[0];
+  return <div className="cattle-preview photo-preview" aria-label="Cattle photos">
+    <div className="photo-preview-main">{shownPhoto ? <img key={shownPhoto} className="photo-slide" src={shownPhoto} alt={`Cattle photo ${activePhoto + 1}`}/> : <div className="cow-placeholder"><img src="/icons/calf_icon.png" alt=""/><small>No photo added</small></div>}</div>
+    <span className="photo-count">{currentPhotos.length}/3 photos</span>
+    {currentPhotos.length > 1 && <div className="photo-dots" aria-label="Choose cattle photo">{currentPhotos.map((photo, index) => <button type="button" className={index === activePhoto ? "active" : ""} key={`${photo.slice(-16)}-${index}`} aria-label={`Show photo ${index + 1}`} onClick={() => setActivePhoto(index)}/>)}</div>}
+    {!onPhotosChange && currentPhotos.length < 3 && <label className="secondary-button photo-edit-button"><ImagePlus size={16}/> Add photo ({3 - currentPhotos.length} left)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addPhotos}/></label>}
+    {onPhotosChange && <div className="photo-preview-actions">
+      {editingPhotos && currentPhotos.map((photo, index) => <div className="photo-thumb" key={`${photo.slice(-24)}-${index}`}><img src={photo} alt={`Cattle photo ${index + 1}`}/><button type="button" aria-label={`Remove photo ${index + 1}`} onClick={async () => { try { await onPhotosChange(currentPhotos.filter((_, i) => i !== index)); } catch (cause) { setError(cause instanceof Error ? cause.message : "Photo removal failed"); } }}><X size={13}/></button></div>)}
+      {editingPhotos && currentPhotos.length < 3 && <label className="photo-add"><ImagePlus size={18}/><span>Add photo</span><small>Max 5 MB each</small><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addPhotos}/></label>}
+      <button type="button" className="secondary-button photo-toggle-edit" aria-pressed={editingPhotos} onClick={() => setEditingPhotos((editing) => !editing)}>{!editingPhotos && <Pencil size={15}/>} {editingPhotos ? "Done" : "Edit photos"}</button>
+    </div>}
+    {error && <p className="cattle-error" role="alert">{error}</p>}
+    {pending[0] && <ImageCropModal key={pending[0]} src={pending[0]} onCancel={() => setPending([])} onSave={saveCrop} description={`Frame this cattle photo before adding it.${pending.length > 1 ? ` ${pending.length} photos remaining.` : ""}`}/>} 
   </div>;
 }
-
-Object.values(modelPaths).forEach((path) => useGLTF.preload(path));

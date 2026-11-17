@@ -11,9 +11,11 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole("veterinarian", "farm_aide"); if ("response" in auth) return auth.response;
   let body: Record<string, unknown>; try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const damId = Number(body.dam_id), confirmationId = Number(body.confirmation_id), birthDate = dateOnly(body.birth_date), twins = body.twins === true, calves = Array.isArray(body.calves) ? body.calves as Calf[] : [];
+  const photoUrls = Array.isArray(body.photo_urls) ? body.photo_urls : [];
   if (![damId, confirmationId].every(v => Number.isSafeInteger(v) && v > 0)) return NextResponse.json({ error: "Valid dam and pregnancy confirmation are required" }, { status: 400 });
   if (!birthDate || birthDate > new Date().toISOString().slice(0, 10)) return NextResponse.json({ error: "Valid birth date is required" }, { status: 400 });
   if (calves.length !== (twins ? 2 : 1)) return NextResponse.json({ error: "Provide one calf, or exactly two when twins is enabled" }, { status: 400 });
+  if (photoUrls.length > 3 || photoUrls.some((url) => typeof url !== "string" || !/^\/uploads\/breeding\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(url))) return NextResponse.json({ error: "Up to 3 valid calving photos are allowed" }, { status: 400 });
   if (!allowed.difficulty.has(String(body.calving_difficulty)) || !validText(body.performed_by, 150, true) || (body.notes != null && !validText(body.notes, 50))) return NextResponse.json({ error: "Performed by and valid calving difficulty are required; notes must be at most 50 characters" }, { status: 400 });
   for (const calf of calves) { const weight = Number(calf.birth_weight_kg); if (!allowed.outcome.has(String(calf.outcome)) || !allowed.sex.has(String(calf.sex)) || !allowed.vigor.has(String(calf.calf_vigor)) || !Number.isFinite(weight) || weight <= 0) return NextResponse.json({ error: "Each calf requires outcome, sex, positive birth weight, and valid vigor" }, { status: 400 }); if ((calf.name != null && !validText(calf.name, 100)) || (calf.notes != null && !validText(calf.notes, 50))) return NextResponse.json({ error: "Calf name must be at most 100 characters and notes at most 50 characters" }, { status: 400 }); }
   const client = await db.connect();
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (birthDate < dateString(active.event_date)) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Birth date cannot precede breeding service" }, { status: 409 }); }
     const summary = calves.map((c, i) => `${i + 1}: ${String(c.outcome).replaceAll("_", " ")}`).join("; ");
     const breedingId = (await client.query("INSERT INTO breeding_records (livestock_id,event_type,event_date,sire_id,pregnancy_status,details,performed_by,created_by_user_id,source_service_id) VALUES ($1,'calving',$2,$3,'delivered',$4,$5,$6,$7) RETURNING id", [damId, birthDate, active.sire_id, `${twins ? "Twins" : "Single"}; ${summary}`, String(body.performed_by).trim(), auth.user.id, active.service_id])).rows[0].id;
-    const event = (await client.query("INSERT INTO calving_events (dam_id,pregnancy_confirmation_id,service_id,breeding_record_id,birth_date,performed_by,calving_difficulty,twins,notes,created_by_user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *", [damId, confirmationId, active.service_id, breedingId, birthDate, String(body.performed_by).trim(), body.calving_difficulty, twins, body.notes || null, auth.user.id])).rows[0];
+    const event = (await client.query("INSERT INTO calving_events (dam_id,pregnancy_confirmation_id,service_id,breeding_record_id,birth_date,performed_by,calving_difficulty,twins,notes,created_by_user_id,photo_urls) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb) RETURNING *", [damId, confirmationId, active.service_id, breedingId, birthDate, String(body.performed_by).trim(), body.calving_difficulty, twins, body.notes || null, auth.user.id, JSON.stringify(photoUrls)])).rows[0];
     const saved = [];
     for (const [i, input] of calves.entries()) {
       let livestock = null;

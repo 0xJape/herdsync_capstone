@@ -1,6 +1,56 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+/* Profile PDF: readable columns beat forced one-line tables. */
+.livestock-profile-report { max-width: 100%; margin: 0 auto; padding: 1.5rem; color: #171c18; background: #fff; }
+.livestock-profile-report .profile-report-section { margin: 1.5rem 0; break-inside: auto; }
+.livestock-profile-report .profile-report-section h4 { margin: 0 0 .55rem; padding-bottom: .35rem; border-bottom: 1px solid #444; font-size: 1rem; }
+.livestock-profile-report .report-table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 9pt; }
+.livestock-profile-report .report-table th, .livestock-profile-report .report-table td { min-width: 0; padding: .42rem .5rem; border: 1px solid #555; vertical-align: top; text-align: left; overflow-wrap: anywhere; white-space: normal; }
+.livestock-profile-report .report-table thead { display: table-header-group; }
+.livestock-profile-report .report-table tr { break-inside: avoid; }
+.livestock-profile-report .report-table th { background: #f0f1ed; font-weight: 700; }
+.livestock-profile-report .report-table td[colspan] { text-align: center; font-style: italic; }
+@media print {
+  .livestock-profile-report { display: block !important; width: 100%; max-width: none; padding: 0; }
+  .livestock-profile-report .profile-report-section { margin-top: 1.25rem; }
+  .livestock-profile-report .report-table { font-size: 8pt; }
+  .livestock-profile-report .report-table th, .livestock-profile-report .report-table td { padding: .3rem .4rem; }
+}
+
+.breeding-photo-field { display: grid; gap: .65rem; padding: 1rem; border: 1px solid var(--border); border-radius: 12px; }
+.breeding-photo-field > small { color: var(--muted); }
+.breeding-photo-field .secondary-button { width: fit-content; cursor: pointer; }
+.breeding-photo-preview { display: flex; align-items: end; gap: .75rem; }
+.breeding-photo-preview > div { position: relative; }
+.breeding-photo-preview img { display: block; width: 9rem; height: 5.1rem; object-fit: cover; border-radius: 10px; }
+.breeding-photo-preview > div > button { position: absolute; top: .3rem; right: .3rem; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border: 0; border-radius: 50%; background: rgb(20 25 22 / 78%); color: white; cursor: pointer; }
+.calving-photos { padding: 1.25rem 1.6rem; border-top: 1px solid var(--border); }
+.calving-photos h3 { margin: 0 0 .75rem; }
+.calving-photos .breeding-photo-preview img { width: 12rem; height: 7rem; }
+.calving-photos .breeding-record-photo-open { border-radius: 10px; }
+.breeding-record-photo { display: grid; place-items: center; width: 4rem; height: 3rem; object-fit: cover; border-radius: 8px; background: #eef3ed; font-size: 1.35rem; }
+.breeding-record-photo-panel { min-width: 0; min-height: 18rem; border-radius: 16px; overflow: hidden; background: #eef3ed; }
+.breeding-record-photo-panel img { display: block; width: 100%; height: 18rem; object-fit: cover; }
+.breeding-record-photo-panel > div { display: grid; place-items: center; align-content: center; gap: .5rem; height: 18rem; color: var(--muted); }
+.breeding-record-photo-panel span { font-size: 3rem; }
+.breeding-record-photo-carousel { display: grid; gap: .55rem; height: 100%; }
+.breeding-record-photo-open { min-width: 0; border: 0; padding: 0; overflow: hidden; cursor: zoom-in; background: transparent; }
+.breeding-record-photo-open img { width: 100%; height: 100%; min-height: 15rem; object-fit: cover; transition: transform .2s ease; }
+.breeding-record-photo-open:hover img { transform: scale(1.03); }
+.breeding-session-table th:first-child,
+.breeding-session-table td:first-child { display: none; }
+.breeding-record-photo-dots { display: flex; justify-content: center; gap: .35rem; }
+.breeding-record-photo-dots span { width: .45rem; height: .45rem; border-radius: 50%; background: var(--border); }
+.breeding-record-photo-dots span.active { background: var(--accent); }
+.breeding-photo-lightbox { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 3rem; background: rgb(8 12 10 / 88%); }
+.breeding-photo-lightbox-stage { max-width: min(90vw, 75rem); max-height: 82vh; touch-action: pan-y; }
+.breeding-photo-lightbox-stage img { display: block; max-width: 100%; max-height: 82vh; border-radius: .75rem; object-fit: contain; }
+.breeding-photo-lightbox-close { position: fixed; top: 1.25rem; right: 1.25rem; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 0; border-radius: 50%; background: white; cursor: pointer; }
+.breeding-photo-lightbox footer { position: fixed; bottom: 1rem; display: flex; align-items: center; gap: 1rem; color: white; }
+.breeding-photo-lightbox footer button { border: 1px solid rgb(255 255 255 / 45%); border-radius: .5rem; padding: .5rem .8rem; background: rgb(255 255 255 / 12%); color: white; cursor: pointer; }
+.breeding-photo-lightbox footer button:disabled { opacity: .4; cursor: default; }
+
 .faculty-read-only .cattle-profile-actions > .cattle-actions,
 .faculty-read-only .cattle-profile-actions > .cattle-add-button,
 .faculty-read-only .growth-actions button,
@@ -460,10 +510,11 @@
 .breeding-table-muted { color: var(--muted); font-size: .72rem; }
 .breeding-record-page { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .75rem; font-size: .82rem; }
 .breeding-record-page > :is(.breeding-detail-header, .cattle-error) { grid-column: 1 / -1; }
-.breeding-record-page > .breeding-session-summary,
-.breeding-record-page > .breeding-milestone { grid-column: span 6; }
-.breeding-record-page > .breeding-service-details { grid-column: span 5; align-self: start; min-width: 0; }
-.breeding-record-page > .breeding-related-records { grid-column: span 7; align-self: start; min-width: 0; }
+.breeding-record-page > .breeding-record-photo-panel { grid-column: span 3; }
+.breeding-record-page > .breeding-record-pair { grid-column: span 9; }
+.breeding-record-page > .breeding-milestone { grid-column: span 6; align-self: stretch; min-width: 0; }
+.breeding-record-page > .breeding-service-details { grid-column: span 6; align-self: start; min-width: 0; }
+.breeding-record-page > .breeding-related-records { grid-column: 1 / -1; align-self: start; min-width: 0; }
 .breeding-record-page .breeding-detail-header { padding-bottom: .5rem; }
 .breeding-record-page .breeding-detail-header > div:first-child { gap: .3rem; }
 .breeding-record-page .breeding-detail-header h1 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.65rem); }
@@ -524,7 +575,7 @@
 .breeding-detail-help { position: relative; display: inline-grid; vertical-align: middle; place-items: center; margin-left: .2rem; color: var(--muted); cursor: help; }
 .breeding-detail-help::after { position: absolute; z-index: 20; top: calc(100% + .4rem); left: 0; width: min(19rem, calc(100vw - 3rem)); border-radius: .5rem; background: #17211b; box-shadow: 0 8px 24px rgb(0 0 0 / 22%); color: #fff; content: attr(data-tooltip); font-size: .68rem; font-weight: 400; line-height: 1.4; padding: .5rem .6rem; opacity: 0; pointer-events: none; text-align: left; }
 .breeding-detail-help:is(:hover, :focus-visible)::after { opacity: 1; }
-@media (max-width: 1000px) { .breeding-record-page > :is(.breeding-session-summary, .breeding-milestone, .breeding-record-table-section) { grid-column: 1 / -1; } }
+@media (max-width: 1000px) { .breeding-record-page > :is(.breeding-record-photo-panel, .breeding-session-summary, .breeding-milestone, .breeding-record-table-section) { grid-column: 1 / -1; } }
 @media (max-width: 760px) { .breeding-milestone-simple, .breeding-record-page .breeding-milestone-simple { grid-template-columns: 1fr; }.breeding-check-calendar { width: 100%; } }
 @media (max-width: 620px) { .breeding-date-strip { grid-template-columns: 1fr; }.breeding-date-strip > span + span { border-top: 1px solid var(--border); border-left: 0; }.breeding-details-table th { width: 8.5rem; } }
 .breeding-heat-modal form { gap: .85rem; }
@@ -561,6 +612,57 @@
 
 .cattle-form-section:first-of-type .grid > .field:last-child,
 .cattle-form .cattle-preview-layout { display: none; }
+.photo-preview { position: relative; width: 100%; height: 18rem; min-height: 18rem; max-height: 18rem; overflow: hidden; }
+.photo-preview-main { width: 100%; height: 18rem; }
+.photo-preview-main img { width: 100%; height: 18rem; object-fit: cover; display: block; }
+.photo-slide { animation: photo-slide-in .35s ease; }
+@keyframes photo-slide-in { from { opacity: 0; transform: scale(1.015); } to { opacity: 1; transform: scale(1); } }
+.cow-placeholder { height: 18rem; display: grid; place-content: center; gap: .45rem; text-align: center; color: #52645b; }
+.cow-placeholder span { font-size: 3.5rem; }
+.photo-edit-button { position: absolute; left: 50%; bottom: 1rem; transform: translateX(-50%); display: inline-flex; align-items: center; gap: .45rem; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 14px #152c2030; }
+.photo-edit-button input, .photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.photo-preview-actions { position: absolute; right: .75rem; bottom: .75rem; left: .75rem; display: flex; align-items: center; justify-content: center; gap: .5rem; }
+.photo-thumb { position: relative; width: 2.75rem; height: 2.75rem; overflow: visible; border: 2px solid white; border-radius: .55rem; background: white; box-shadow: 0 2px 8px #0005; }
+.photo-thumb img { width: 100%; height: 100%; border-radius: .4rem; object-fit: cover; }
+.photo-thumb button { position: absolute; top: -.45rem; right: -.45rem; display: grid; width: 1.25rem; height: 1.25rem; padding: 0; place-items: center; border: 0; border-radius: 50%; background: #8f2525; color: white; cursor: pointer; }
+.photo-add { position: relative; display: inline-flex; align-items: center; gap: .4rem; min-height: 2.75rem; padding: .5rem .75rem; border-radius: .6rem; background: white; color: #173c2b; font-size: .8rem; font-weight: 700; box-shadow: 0 2px 8px #0005; cursor: pointer; }
+.photo-add small { display: none; }
+.photo-toggle-edit { display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap; box-shadow: 0 2px 8px #0005; }
+.photo-count { position: absolute; top: .75rem; right: .75rem; padding: .3rem .55rem; border-radius: 999px; background: #152c20cc; color: white; font-size: .75rem; font-weight: 700; }
+.photo-dots { position: absolute; left: 50%; bottom: 4.25rem; transform: translateX(-50%); display: flex; gap: .4rem; }
+.photo-dots button { width: .65rem; height: .65rem; padding: 0; border: 2px solid white; border-radius: 50%; background: #ffffff88; box-shadow: 0 1px 4px #0005; cursor: pointer; }
+.photo-dots button.active { background: #2f6f4e; }
+.image-crop-backdrop { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1.25rem; overflow-y: auto; background: rgb(12 28 20 / 72%); backdrop-filter: blur(5px); animation: crop-fade-in .18s ease-out; }
+.image-crop-modal { width: min(42rem, 100%); overflow: hidden; border: 1px solid rgb(255 255 255 / 35%); border-radius: 1.25rem; background: #fff; box-shadow: 0 24px 80px rgb(0 0 0 / 30%); animation: crop-rise-in .22s ease-out; }
+.image-crop-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.35rem 1rem; border-bottom: 1px solid #e4ebe6; }
+.image-crop-heading { display: flex; align-items: flex-start; gap: .75rem; }
+.image-crop-heading > span { display: grid; flex: 0 0 2.25rem; height: 2.25rem; place-items: center; border-radius: .7rem; color: #17633f; background: #e7f3ec; }
+.image-crop-heading h2 { margin: 0; color: #16271e; font-size: 1.2rem; line-height: 1.25; }
+.image-crop-heading p { margin: .3rem 0 0; color: #66776d; font-size: .9rem; }
+.image-crop-stage { position: relative; margin: 1.15rem 1.35rem 0; overflow: hidden; border-radius: .85rem; background: #17251e; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 10%); cursor: grab; touch-action: none; user-select: none; }
+.image-crop-stage:active { cursor: grabbing; }
+.image-crop-stage img { width: 100%; height: 100%; object-fit: cover; transition: transform .1s ease, object-position .1s ease; user-select: none; }
+.image-crop-stage > span { position: absolute; top: .7rem; left: .7rem; padding: .25rem .55rem; border-radius: 999px; color: #fff; background: rgb(12 28 20 / 70%); font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.image-crop-stage > p { position: absolute; right: .7rem; bottom: .7rem; margin: 0; padding: .35rem .6rem; border-radius: .5rem; color: #fff; background: rgb(12 28 20 / 72%); font-size: .78rem; font-weight: 700; pointer-events: none; }
+.image-crop-guide { position: absolute; inset: 0; border: 1px solid rgb(255 255 255 / 55%); border-radius: inherit; background: linear-gradient(90deg, transparent 33.2%, rgb(255 255 255 / 35%) 33.3%, transparent 33.6%, transparent 66.3%, rgb(255 255 255 / 35%) 66.6%, transparent 66.8%), linear-gradient(0deg, transparent 33.2%, rgb(255 255 255 / 35%) 33.3%, transparent 33.6%, transparent 66.3%, rgb(255 255 255 / 35%) 66.6%, transparent 66.8%); pointer-events: none; }
+.image-crop-controls { display: grid; gap: .9rem; padding: 1.15rem 1.35rem; }
+.image-crop-controls label { display: grid; gap: .45rem; color: #273a30; font-size: .86rem; font-weight: 750; }
+.image-crop-controls label > span { display: flex; justify-content: space-between; gap: 1rem; }
+.image-crop-controls output { color: #557066; font-variant-numeric: tabular-nums; font-weight: 650; }
+.image-crop-controls input { width: 100%; accent-color: #19734a; cursor: pointer; }
+.image-crop-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.35rem 1.25rem; border-top: 1px solid #e4ebe6; background: #f8faf8; }
+.image-crop-actions > div { display: flex; gap: .65rem; }
+.image-crop-actions .text-button { display: inline-flex; align-items: center; gap: .4rem; border: 0; color: #496157; background: transparent; font-weight: 750; cursor: pointer; }
+@keyframes crop-fade-in { from { opacity: 0; } }
+@keyframes crop-rise-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+@media (max-width: 560px) {
+  .image-crop-backdrop { align-items: end; padding: 0; }
+  .image-crop-modal { border-radius: 1.25rem 1.25rem 0 0; }
+  .image-crop-header, .image-crop-controls, .image-crop-actions { padding-right: 1rem; padding-left: 1rem; }
+  .image-crop-stage { margin-right: 1rem; margin-left: 1rem; }
+  .image-crop-actions { align-items: stretch; flex-direction: column-reverse; }
+  .image-crop-actions > div { display: grid; grid-template-columns: 1fr 1fr; }
+}
 
 .cattle-table tbody tr { position: relative; cursor: pointer; }
 .cattle-table .cattle-actions { position: relative; z-index: 1; }
@@ -658,6 +760,20 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 760px) { .reports-hero { align-items: stretch; flex-direction: column; }.report-actions { display: grid; grid-template-columns: repeat(3, 1fr); }.report-grid { grid-template-columns: 1fr; }.report-signatures { grid-template-columns: 1fr; gap: 2.5rem; } }
 @media (max-width: 520px) { .report-actions, .report-summary { grid-template-columns: 1fr; } }
 .formal-report > header > strong { display: none; }
+.health-report .formal-report .report-table { width: 100%; max-width: 48rem; min-width: 0; margin-inline: auto; }
+.health-report .formal-report .report-table :is(th, td) { text-align: center; }
+.calving-report .formal-report .report-table { width: 100%; max-width: none; min-width: 0; margin-inline: auto; table-layout: fixed; }
+.calving-report .formal-report .report-table :is(th, td) { width: 10%; text-align: center; white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+.calving-report .formal-report .calving-summary-table { table-layout: fixed; min-width: 0; }
+.calving-report .formal-report .calving-summary-table th { text-align: center; overflow-wrap: anywhere; vertical-align: middle; }
+.calving-report .formal-report .calving-summary-table td { text-align: center; }
+.calving-report-indicators { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding-block: 1rem; }
+.calving-report-indicators > div { display: grid; gap: .3rem; min-width: 0; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 86%, var(--accent) 14%); padding: .75rem; }
+.calving-report-indicators span { color: var(--muted); font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.calving-report-indicators strong { font-size: 1.1rem; }
+@media (max-width: 760px) { .calving-report-indicators { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .calving-report-indicators { grid-template-columns: 1fr; } }
+@media print { .calving-report-indicators { grid-template-columns: repeat(4, minmax(0, 1fr)); break-inside: avoid; } .calving-report-indicators > div { background: transparent; } }
 
 /* Analytics */
 .analytics-page { display: grid; width: 100%; min-width: 0; gap: 1rem; }
@@ -788,6 +904,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .cattle-form { display: grid; gap: 1rem; }.cattle-panel-heading h2 { margin-top: .2rem; font-size: 1.1rem; }.cattle-error { border-radius: .55rem; background: #fff0ed; padding: .7rem; color: #a33e37; font-size: .78rem; }.cattle-submit { width: 100%; }.cattle-inventory { width: 100%; min-width: 0; overflow: hidden; padding: 1.15rem 1.35rem; }.cattle-table-wrap { overflow-x: auto; margin-top: .65rem; }.cattle-table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; font-size: .8rem; }.cattle-table th { color: var(--muted); font-size: .65rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }.cattle-table th, .cattle-table td { height: 4.5rem; border-bottom: 1px solid var(--border); padding: .7rem .65rem; vertical-align: middle; }.cattle-table th { height: auto; }.cattle-table th:first-child { width: 18%; }.cattle-table th:nth-child(2) { width: 15%; }.cattle-table th:nth-child(3) { width: 12%; }.cattle-table th:nth-child(4) { width: 15%; }.cattle-table th:nth-child(5) { width: 13%; }.cattle-table th:nth-child(6) { width: 13%; }.cattle-table th:last-child { width: 7rem; }.cattle-table tbody tr:hover { background: color-mix(in srgb, var(--accent) 3%, transparent); }.cattle-table td:first-child span { color: var(--muted); font-size: .7rem; }.cattle-identity { display: grid; gap: .15rem; color: var(--accent); }.cattle-identity:hover strong { text-decoration: underline; }.cattle-status { display: inline-flex; border-radius: 999px; background: var(--surface-muted); padding: .28rem .55rem; font-size: .68rem; font-weight: 700; }.cattle-status-active { background: #e8f5eb; color: #277044; }.cattle-status-sold, .cattle-status-transferred { background: #fff2df; color: #945b20; }.cattle-status-deceased { background: #f5e9e7; color: #9b4840; }.cattle-actions { display: flex; justify-content: flex-end; gap: .3rem; }.cattle-empty { padding: 2rem; text-align: center; font-size: .8rem; }
 .cattle-filters { display: flex; flex-wrap: wrap; gap: .5rem; }.cattle-filters select { border: 1px solid var(--border); border-radius: .6rem; background: var(--surface); padding: .65rem .75rem; color: var(--foreground); font-size: .75rem; }.cattle-pagination { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; padding-top: 1rem; }.cattle-pagination button { min-width: 2.3rem; border: 1px solid var(--border); border-radius: .55rem; padding: .5rem .65rem; font-size: .72rem; }.cattle-pagination button:hover:not(:disabled), .cattle-pagination button[aria-current="page"] { border-color: var(--accent); background: var(--accent); color: white; }.cattle-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .cattle-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; overflow-y: auto; background: rgb(8 18 11 / 62%); padding: 1rem; }.cattle-modal { width: min(100%, 44rem); max-height: calc(100vh - 2rem); overflow-x: hidden; overflow-y: auto; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); padding: 1.5rem; box-shadow: 0 24px 80px rgb(0 0 0 / 28%); }.cattle-modal > .cattle-panel-heading { position: sticky; top: -1.5rem; z-index: 2; margin: -1.5rem -1.5rem 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 1.25rem 1.5rem; }
+.lifecycle-confirm-backdrop { z-index: 130; background: rgb(8 18 11 / 72%); backdrop-filter: blur(3px); }.lifecycle-confirm-modal { width: min(100%, 28rem); padding: 2rem; text-align: center; }.lifecycle-confirm-modal h2 { margin: .45rem 0 .65rem; font-size: 1.35rem; }.lifecycle-confirm-modal p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; }.lifecycle-confirm-modal .modal-actions { justify-content: center; gap: .7rem; margin-top: 1.6rem; }.lifecycle-confirm-modal .modal-actions :is(button) { min-width: 7rem; justify-content: center; }
 .cattle-registration-confirm { width: min(100%, 28rem); overflow: hidden; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); box-shadow: 0 24px 80px rgb(0 0 0 / 28%); }
 .cattle-registration-confirm-header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .75rem; padding: 1rem 1rem .8rem; }
 .cattle-registration-confirm-header h2 { margin-top: .15rem; font-size: 1.1rem; line-height: 1.25; }
@@ -836,6 +953,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   pointer-events: none;
   cursor: not-allowed;
 }
+.cattle-profile :is(button, a):disabled { cursor: not-allowed; opacity: .45; pointer-events: none; }.cattle-profile :is(button, a):disabled:hover { background: inherit; border-color: inherit; color: inherit; }
 .pregnancy-history-panel { padding: 1.15rem 1.35rem; }
 .pregnancy-history-panel .section-heading { margin-bottom: 1.15rem; }
 .pregnancy-history-panel .cattle-table-wrap { overflow-x: auto; margin-top: 0; border: 1px solid var(--border); border-radius: .85rem; background: var(--surface); }
@@ -867,6 +985,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .pregnancy-history-panel .cattle-table td:nth-child(4):not([data-label]) { color: #8a6018; font-weight: 750; }
 .profile-breeding-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
 .profile-breeding-actions button:disabled { cursor: not-allowed; opacity: .7; }
+.cattle-profile button:disabled, .cattle-profile .secondary-button:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.35); }
 .profile-breeding-actions button.is-blocked { cursor: not-allowed; opacity: .48; filter: grayscale(.35); }
 .heat-status-badge { background: #fff0d6 !important; color: #9a601f !important; }
 .cattle-profile-hero { display: grid; grid-template-columns: minmax(17rem, .8fr) minmax(0, 1.2fr); gap: clamp(1.25rem, 4vw, 3rem); align-items: center; overflow: hidden; padding: clamp(1rem, 3vw, 2rem); }.cattle-profile-model .cattle-preview { min-height: 18rem; border: 0; border-radius: 1rem; }.cattle-profile-model .cattle-preview canvas { height: 18rem !important; }.cattle-profile-intro h1 { margin: .35rem 0; font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1; letter-spacing: -.065em; }.cattle-profile-tag { color: var(--muted); font-size: .9rem; }.cattle-profile-tag span { margin-inline: .3rem; color: var(--border); }.cattle-profile-intro .cattle-profile-badges { margin-top: 1rem; }.cattle-profile-highlights { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.25rem; }.cattle-profile-highlights div { display: grid; gap: .25rem; border-right: 1px solid var(--border); padding-inline: .85rem; }.cattle-profile-highlights div:first-child { padding-left: 0; }.cattle-profile-highlights div:last-child { border: 0; }.cattle-profile-highlights dt { color: var(--muted); font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }.cattle-profile-highlights dd { overflow-wrap: anywhere; font-size: .85rem; font-weight: 700; }.cattle-profile-tabs { display: flex; gap: .35rem; width: fit-content; border: 1px solid var(--border); border-radius: .85rem; background: var(--surface); padding: .3rem; box-shadow: var(--shadow-soft); }.cattle-profile-tab { display: inline-flex; align-items: center; gap: .45rem; border-radius: .6rem; padding: .65rem 1rem; color: var(--muted); font-size: .76rem; font-weight: 700; }.cattle-profile-tab span { border-radius: 999px; background: var(--surface-muted); padding: .12rem .4rem; font-size: .62rem; }.cattle-profile-tab.active { background: var(--accent); color: white; }.cattle-profile-tab.active span { background: rgb(255 255 255 / 18%); }
@@ -1711,7 +1830,16 @@ body { background: var(--background); }
 .priority-unscheduled { color: #66616d; background: #e9e5ec; border-color: #aaa1b2; }
 .attention-timing { display: block; white-space: nowrap; font-size: .78rem; }
 .attention-row { box-shadow: inset 3px 0 transparent; }
-.attention-row-critical { box-shadow: inset 3px 0 #bd4b3d; }
+.attention-row-critical { color: #a33e37; box-shadow: inset 3px 0 #bd4b3d; }
+.attention-table .alert-category { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: .28rem .55rem; line-height: 1; }
+.attention-table .category-breeding { color: #7147a8; background: #f0e8fb; border-color: #c9afe9; }
+.attention-table .category-calving { color: #9a4c21; background: #fcebdd; border-color: #e9b991; }
+.attention-table .category-heat-cycle { color: #a23867; background: #fbe5ef; border-color: #e8a9c5; }
+.attention-table .category-calf-care { color: #246b58; background: #e0f4ed; border-color: #9dd5c5; }
+.attention-table .category-treatment { color: #a33e37; background: #ffe3de; border-color: #db8175; }
+.attention-table .category-preventive-care { color: #26649a; background: #e2f0fc; border-color: #9bc5e8; }
+.attention-table .category-parasite-control { color: #75621c; background: #f8f0ca; border-color: #d9c66c; }
+.attention-table .category-health-check { color: #356b38; background: #e5f3e3; border-color: #a8d1a4; }
 .attention-row-today { box-shadow: inset 3px 0 #d47b2f; }
 .attention-row-high { box-shadow: inset 3px 0 #d5aa2d; }
 .attention-row-warning { box-shadow: inset 3px 0 #5686aa; }
@@ -1823,7 +1951,7 @@ body { background: var(--background); }
   .attention-table tr, .recent-records-table tr, .audit-log-table tr { display: grid; gap: .55rem; border: 1px solid var(--border); border-radius: .7rem; padding: .85rem; background: var(--surface); }
   .attention-table td, .recent-records-table td, .audit-log-table td { display: grid; grid-template-columns: minmax(5.5rem, 34%) minmax(0, 1fr); align-items: start; gap: .65rem; border: 0; padding: 0; overflow-wrap: anywhere; }
   .attention-table td::before, .recent-records-table td::before, .audit-log-table td::before { color: var(--muted); font-size: .64rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-  .attention-table td:nth-child(1)::before { content: "Urgency"; }.attention-table td:nth-child(2)::before { content: "Category"; }.attention-table td:nth-child(3)::before { content: "Animal"; }.attention-table td:nth-child(4)::before { content: "Follow-up"; }.attention-table td:nth-child(5)::before { content: "When"; }.attention-table td:nth-child(6)::before { content: "Action"; }
+  .attention-table td:nth-child(1)::before { content: "Cattle ID"; }.attention-table td:nth-child(2)::before { content: "Category"; }.attention-table td:nth-child(3)::before { content: "Care event"; }.attention-table td:nth-child(4)::before { content: "When"; }.attention-table td:nth-child(5)::before { content: "Urgency"; }.attention-table td:nth-child(6)::before { content: "Action"; }
   .recent-records-table td:nth-child(1)::before { content: "Record"; }.recent-records-table td:nth-child(2)::before { content: "Details"; }
   .audit-log-table td:nth-child(1)::before { content: "Action"; }.audit-log-table td:nth-child(2)::before { content: "Record"; }.audit-log-table td:nth-child(3)::before { content: "Details"; }.audit-log-table td:nth-child(4)::before { content: "Changed by"; }.audit-log-table td:nth-child(5)::before { content: "Date and time"; }
   .attention-table td:last-child { white-space: normal; }
@@ -2755,6 +2883,33 @@ body:has(.health-inline-edit-backdrop) .health-view-backdrop:not(.health-inline-
   .panel, .profile-alerts { break-inside: avoid; border-color: #bbb; background: white !important; box-shadow: none; }.cattle-profile-hero { display: block; padding: 1rem; }.cattle-profile-badges span { border: 1px solid #bbb; background: white; color: #111; }
   .profile-dashboard { grid-template-columns: repeat(2, 1fr); }.profile-identity, .profile-health, .profile-detail, .profile-wide { grid-column: auto; }.profile-wide { grid-column: 1 / -1; }
   .record-list { max-height: none; overflow: visible; }.weight-chart { print-color-adjust: exact; }
+}
+
+.livestock-profile-print-report { display: none; }
+.livestock-print-section { margin-top: 1.25rem; break-inside: avoid; }
+.livestock-print-section h4 { margin: 0 0 .55rem; border-bottom: 1px solid var(--border); padding-bottom: .35rem; font-size: .95rem; }
+.livestock-print-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.5rem; }
+.livestock-print-facts > div { display: grid; grid-template-columns: minmax(8rem, 38%) 1fr; gap: .75rem; border-top: 1px solid var(--border); padding: .4rem 0; }
+.livestock-print-facts dt { color: var(--muted); font-size: .68rem; font-weight: 700; }
+.livestock-print-facts dd { margin: 0; overflow-wrap: anywhere; font-size: .7rem; white-space: pre-wrap; }
+.livestock-print-fact-wide { grid-column: 1 / -1; }
+.livestock-print-table-wrap { overflow-x: auto; }
+.livestock-print-table { min-width: 62rem; font-size: .63rem; }
+.livestock-print-table th, .livestock-print-table td { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+.livestock-print-empty { color: var(--muted); font-size: .7rem; }
+@media print {
+  .cattle-profile > :not(.livestock-profile-print-report) { display: none !important; }
+  .cattle-profile { display: block; width: 100%; padding: 0; }
+  .livestock-profile-print-report { display: block !important; border: 0; padding: 0; box-shadow: none; color: #111; }
+  .livestock-profile-print-report > header { min-height: 7rem; padding-inline: 3rem; }
+  .livestock-print-section { break-inside: avoid; }
+  .livestock-print-section h4 { border-color: #555; }
+  .livestock-print-facts > div { border-color: #bbb; }
+  .livestock-print-facts dt, .livestock-print-empty { color: #333; }
+  .livestock-print-table-wrap { overflow: visible; }
+  .livestock-print-table { min-width: 0; width: 100%; font-size: .58rem; table-layout: auto; }
+  .livestock-print-table th, .livestock-print-table td { border-color: #555; padding: .35rem; }
+  .livestock-print-table thead th { background: #eee !important; }
 }
 
 /* Compact growth records; current sparse data has no meaningful trend to chart. */

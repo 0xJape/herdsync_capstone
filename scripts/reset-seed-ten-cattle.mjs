@@ -5,18 +5,17 @@ if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 
 const { Client } = pg;
 const client = new Client({ connectionString: process.env.DATABASE_URL });
-const cattle = [
-  ["Agila", "male", "Brahman", "2021-02-14", 38, 735, "Silver gray with dark shoulders", "purchased", "Mindanao Brahman Genetics", "+63 917 210 1101", "Davao City", 142000, 5, "Proven sire; calm temperament and strong feet."],
-  ["Bagwis", "male", "Angus", "2022-05-03", 35, 682, "Solid black", "purchased", "Bukidnon Angus Farm", "+63 918 320 2202", "Malaybalay City", 135000, 4, "High-growth sire with current breeding soundness exam."],
-  ["Kidlat", "male", "Crossbreed", "2023-01-22", 34, 598, "Red with white blaze", "born_on_farm", null, null, null, null, 4, "Home-raised sire selected for growth and docility."],
-  ["Lakan", "male", "Brahman", "2020-09-18", 39, 758, "Light gray with charcoal neck", "transferred_in", null, "+63 919 430 3303", "State Breeding Center, Laguna", null, 5, "Senior sire with balanced frame and proven fertility."],
-  ["Makisig", "male", "Holstein", "2022-11-07", 37, 704, "Black and white", "donated", "University Dairy Program", "+63 920 540 4404", "Los Baños, Laguna", null, 4, "Dairy-line sire with sound legs and gentle handling behavior."],
-  ["Amihan", "female", "Brahman", "2020-03-11", 32, 486, "Gray with black muzzle", "born_on_farm", null, null, null, null, 4, "Mature dam; three uncomplicated calvings."],
-  ["Hiraya", "female", "Angus", "2021-07-26", 31, 512, "Solid black with forehead star", "purchased", "Northern Luzon Cattle Co-op", "+63 921 650 5505", "Nueva Ecija", 89000, 4, "Productive dam with strong maternal behavior."],
-  ["Ligaya", "female", "Crossbreed", "2022-02-09", 30, 468, "Red with white face", "born_on_farm", null, null, null, null, 4, "Second-calving dam with consistent body condition."],
-  ["Mayumi", "female", "Holstein", "2021-12-17", 33, 536, "Black and white", "transferred_in", null, "+63 922 760 6606", "Provincial Dairy Unit, Batangas", null, 3, "Dairy dam monitored for nutrition and hoof condition."],
-  ["Tala", "female", "Brahman", "2023-04-05", 29, 421, "Light silver gray", "donated", "Regional Livestock Office", "+63 923 870 7707", "General Santos City", null, 4, "Young dam with one healthy calf and normal reproductive exam."],
-];
+const names = ["Agila", "Bagwis", "Kidlat", "Lakan", "Makisig", "Amihan", "Hiraya", "Ligaya", "Mayumi", "Tala", "Bituin", "Dalisay", "Luntian", "Marikit", "Siklab", "Habagat", "Kislap", "Mutya", "Salinlahi", "Yakap"];
+const breeds = ["Brahman", "Angus", "Crossbreed", "Holstein"];
+const markings = ["Silver gray with dark shoulders", "Solid black", "Red with white blaze", "Black and white", "Light gray with charcoal neck"];
+const cattle = names.map((name, index) => {
+  const male = index < 10;
+  const year = 2019 + (index % 5);
+  const month = String((index * 3) % 12 + 1).padStart(2, "0");
+  const day = String((index * 7) % 25 + 1).padStart(2, "0");
+  const acquisition = ["born_on_farm", "purchased", "donated", "transferred_in"][index % 4];
+  return [name, male ? "male" : "female", breeds[index % breeds.length], `${year}-${month}-${day}`, 30 + index, male ? 610 + index * 13 : 430 + index * 9, markings[index % markings.length], acquisition, acquisition === "born_on_farm" ? null : "Regional Livestock Office", acquisition === "born_on_farm" ? null : `+63 917 210 ${1000 + index}`, acquisition === "born_on_farm" ? null : "Laguna", acquisition === "purchased" ? 90000 + index * 5000 : null, 3 + index % 2, `${male ? "Breeding sire" : "Breeding dam"}; sound gait, clear eyes, healthy coat; eligible for breeding.`];
+});
 
 await client.connect();
 try {
@@ -34,9 +33,9 @@ try {
 
   const result = await client.query("SELECT COUNT(*)::int total, COUNT(*) FILTER (WHERE sex='male')::int sires, COUNT(*) FILTER (WHERE sex='female')::int dams FROM livestock");
   const { total, sires, dams } = result.rows[0];
-  if (total !== 10 || sires !== 5 || dams !== 5) throw new Error(`Seed assertion failed: total=${total}, sires=${sires}, dams=${dams}`);
+  if (total !== 20 || sires !== 10 || dams !== 10) throw new Error(`Seed assertion failed: total=${total}, sires=${sires}, dams=${dams}`);
   await client.query("COMMIT");
-  console.log("Reset complete: 5 sires and 5 dams created with distinct profiles.");
+  console.log("Reset complete: 10 eligible sires and 10 eligible dams created with distinct profiles.");
 } catch (error) {
   await client.query("ROLLBACK");
   throw error;

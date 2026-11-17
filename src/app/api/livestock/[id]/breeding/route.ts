@@ -70,6 +70,8 @@ export async function POST(request: NextRequest, context: Context) {
   if (sireId !== null && (!Number.isSafeInteger(sireId) || sireId < 1)) return NextResponse.json({ error: "Invalid sire" }, { status: 400 });
   const sourceServiceId = body.source_service_id == null || body.source_service_id === "" ? null : Number(body.source_service_id);
   if (sourceServiceId !== null && (!Number.isSafeInteger(sourceServiceId) || sourceServiceId < 1)) return NextResponse.json({ error: "Invalid breeding service" }, { status: 400 });
+  const photoUrls = Array.isArray(body.photo_urls) ? body.photo_urls : [];
+  if (photoUrls.length > 3 || photoUrls.some((url) => typeof url !== "string" || !/^\/uploads\/breeding\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(url))) return NextResponse.json({ error: "Up to 3 valid breeding photos are allowed" }, { status: 400 });
   const animal = await db.query("SELECT tag_number, sex, birth_date, has_calved, health_status, body_condition_score, sire_id, dam_id FROM livestock WHERE id = $1 AND status = 'active' AND archived_at IS NULL", [id]);
   if (!animal.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
   if (animal.rows[0].sex !== "female") return NextResponse.json({ error: "This event requires female cattle" }, { status: 409 });
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest, context: Context) {
   if (eventType === "pregnancy_confirmed" && !expectedCalvingDate) {
     expectedCalvingDate = outcomeService?.expected_calving_date || null;
   }
-  const result = await db.query("INSERT INTO breeding_records (livestock_id, event_type, event_date, sire_id, pregnancy_status, expected_calving_date, details, performed_by, created_by_user_id, source_service_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *", [id, eventType, eventDate, sireId, pregnancyStatus, expectedCalvingDate, body.details || null, body.performed_by || null, auth.user.id, sourceServiceId]);
+  const result = await db.query("INSERT INTO breeding_records (livestock_id, event_type, event_date, sire_id, pregnancy_status, expected_calving_date, details, performed_by, created_by_user_id, source_service_id, photo_urls) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb) RETURNING *", [id, eventType, eventDate, sireId, pregnancyStatus, expectedCalvingDate, body.details || null, body.performed_by || null, auth.user.id, sourceServiceId, JSON.stringify(photoUrls)]);
   await logActivity(auth.user.id, "create", "breeding", result.rows[0].id, `${result.rows[0].event_type}  -  ${animal.rows[0].tag_number}`, "Breeding record added");
   return NextResponse.json(result.rows[0], { status: 201 });
 }

@@ -27,16 +27,20 @@ export async function PUT(request: NextRequest, { params }: Context) {
   if (!entries.length) return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   const existing = await db.query("SELECT * FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
   if (!existing.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
-  if (existing.rows[0].status !== "active") return NextResponse.json({ error: "Inactive cattle profile is view-only" }, { status: 409 });
+  if (existing.rows[0].status !== "active" && entries.some(([field]) => field !== "photo_urls")) return NextResponse.json({ error: "Inactive cattle profile is view-only" }, { status: 409 });
   const merged = { ...existing.rows[0], ...body };
-  const error = validateLivestock(merged);
+  const photoOnly = entries.every(([field]) => field === "photo_urls");
+  const error = photoOnly
+    ? (!Array.isArray(body.photo_urls) || body.photo_urls.length > 3 || body.photo_urls.some((url) => typeof url !== "string" || !url.startsWith("/uploads/cattle/")) ? "Up to 3 valid cattle photos are allowed" : null)
+    : validateLivestock(merged);
   if (error) return NextResponse.json({ error }, { status: 400 });
   if (body.status && ["sold", "culled", "transferred_out"].includes(String(body.status))) {
     const restriction = await db.query("SELECT medication_name, withdrawal_end_date::text FROM health_records WHERE livestock_id = $1 AND archived_at IS NULL AND withdrawal_end_date >= CURRENT_DATE ORDER BY withdrawal_end_date DESC LIMIT 1", [id]);
     if (restriction.rows[0]) return NextResponse.json({ error: `${restriction.rows[0].medication_name || "Treatment"} restricts this action through ${restriction.rows[0].withdrawal_end_date}` }, { status: 409 });
   }
   try {
-    const result = await db.query(`UPDATE livestock SET ${entries.map(([field], index) => `${field} = $${index + 1}`).join(", ")}, updated_at = NOW() WHERE id = $${entries.length + 1} AND archived_at IS NULL RETURNING *`, [...entries.map(([, value]) => value), id]);
+    const values = entries.map(([field, value]) => field === "photo_urls" ? JSON.stringify(value) : value);
+    const result = await db.query(`UPDATE livestock SET ${entries.map(([field], index) => `${field} = $${index + 1}`).join(", ")}, updated_at = NOW() WHERE id = $${entries.length + 1} AND archived_at IS NULL RETURNING *`, [...values, id]);
     if (result.rows[0]) await logActivity(auth.user.id, "update", "livestock", result.rows[0].id, `Updated ${result.rows[0].tag_number}`, `${entries.length} field${entries.length === 1 ? "" : "s"} changed`);
     return result.rows[0] ? NextResponse.json(withCategory(result.rows[0])) : NextResponse.json({ error: "Livestock not found" }, { status: 404 });
   } catch (error) {
@@ -59,6 +63,8 @@ export async function DELETE(request: NextRequest, { params }: Context) {
   const buyer = typeof body.buyer === "string" ? body.buyer.trim() : "";
   const price = Number(body.price);
   if (action === "sold" && (!buyer || buyer.length > 150 || !Number.isFinite(price) || price <= 0)) return NextResponse.json({ error: "Buyer and valid sale price are required" }, { status: 400 });
+  const deathPhotoUrls = Array.isArray(body.photo_urls) ? body.photo_urls.filter((url): url is string => typeof url === "string") : [];
+  if (action === "deceased" && (deathPhotoUrls.length > 3 || deathPhotoUrls.some((url) => !/^\/uploads\/(?:cattle|breeding|livestock)\/[a-f0-9-]+\.(?:jpg|png|webp)$/.test(url)))) return NextResponse.json({ error: "Death photos must contain at most 3 valid uploaded images" }, { status: 400 });
   const lifecycleReason = action === "sold" ? `Sale date: ${eventDate}; Buyer: ${buyer}; Sale price: ₱${price.toFixed(2)}; Reason: ${reason}` : action === "archive" ? reason : `Date: ${eventDate}; Reason: ${reason}`;
   const client = await db.connect();
   try {
@@ -70,6 +76,7 @@ export async function DELETE(request: NextRequest, { params }: Context) {
       if (restriction.rows[0]) { await client.query("ROLLBACK"); return NextResponse.json({ error: `${restriction.rows[0].medication_name || "Treatment"} prevents this lifecycle action through ${restriction.rows[0].withdrawal_end_date}` }, { status: 409 }); }
     }
     if (action === "archive") await client.query("UPDATE livestock SET archived_at = NOW(), archive_reason = $1, archived_by_user_id = $2, updated_at = NOW() WHERE id = $3", [lifecycleReason, auth.user.id, id]);
+    else if (action === "deceased") await client.query("UPDATE livestock SET status = $1, archive_reason = $2, death_date = $3, death_reason = $4, death_photo_urls = $5::jsonb, archived_by_user_id = $6, updated_at = NOW() WHERE id = $7", [action, lifecycleReason, eventDate, reason, JSON.stringify(deathPhotoUrls), auth.user.id, id]);
     else await client.query("UPDATE livestock SET status = $1, archive_reason = $2, archived_by_user_id = $3, updated_at = NOW() WHERE id = $4", [action, lifecycleReason, auth.user.id, id]);
     await client.query("INSERT INTO activity_logs (user_id, action, entity_type, entity_id, title, detail) VALUES ($1, $2, 'livestock', $3, $4, $5)", [auth.user.id, action === "archive" ? "archive" : "update", animal.rows[0].id, action === "archive" ? `Archived ${animal.rows[0].tag_number}` : `Marked ${animal.rows[0].tag_number} ${action}`, lifecycleReason]);
     await client.query("COMMIT");

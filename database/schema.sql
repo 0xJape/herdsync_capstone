@@ -95,8 +95,16 @@ ALTER TABLE livestock ADD COLUMN IF NOT EXISTS previous_farm VARCHAR(200);
 ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_acquisition_type_check;
 ALTER TABLE livestock ADD CONSTRAINT livestock_acquisition_type_check CHECK (acquisition_type IN ('born_on_farm','purchased','donated','transferred_in'));
 ALTER TABLE livestock ADD COLUMN IF NOT EXISTS quarantine_status VARCHAR(20) NOT NULL DEFAULT 'not_required';
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS photo_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS death_date DATE;
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS death_reason TEXT;
+ALTER TABLE livestock ADD COLUMN IF NOT EXISTS death_photo_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_quarantine_status_check;
 ALTER TABLE livestock ADD CONSTRAINT livestock_quarantine_status_check CHECK (quarantine_status IN ('not_required', 'active', 'pending_clearance', 'released'));
+ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_photo_urls_check;
+ALTER TABLE livestock ADD CONSTRAINT livestock_photo_urls_check CHECK (jsonb_typeof(photo_urls) = 'array' AND jsonb_array_length(photo_urls) <= 3);
+ALTER TABLE livestock DROP CONSTRAINT IF EXISTS livestock_death_photo_urls_check;
+ALTER TABLE livestock ADD CONSTRAINT livestock_death_photo_urls_check CHECK (jsonb_typeof(death_photo_urls) = 'array' AND jsonb_array_length(death_photo_urls) <= 3);
 CREATE INDEX IF NOT EXISTS livestock_active_quarantine_idx ON livestock (quarantine_status) WHERE quarantine_status = 'active' AND archived_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS health_records (
@@ -194,6 +202,8 @@ CREATE TABLE IF NOT EXISTS breeding_records (
   expected_calving_date DATE,
   details TEXT,
   performed_by VARCHAR(150),
+  photo_url TEXT CHECK (photo_url IS NULL OR photo_url LIKE '/uploads/breeding/%'),
+  photo_urls JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(photo_urls) = 'array' AND jsonb_array_length(photo_urls) <= 3),
   created_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
   source_service_id BIGINT REFERENCES breeding_records(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -224,6 +234,10 @@ CREATE TABLE IF NOT EXISTS calving_events (
   UNIQUE (service_id),
   UNIQUE (pregnancy_confirmation_id, service_id)
 );
+
+ALTER TABLE calving_events ADD COLUMN IF NOT EXISTS photo_urls JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE calving_events DROP CONSTRAINT IF EXISTS calving_events_photo_urls_check;
+ALTER TABLE calving_events ADD CONSTRAINT calving_events_photo_urls_check CHECK (jsonb_typeof(photo_urls) = 'array' AND jsonb_array_length(photo_urls) <= 3);
 
 CREATE INDEX IF NOT EXISTS calving_events_dam_idx ON calving_events (dam_id, birth_date DESC);
 

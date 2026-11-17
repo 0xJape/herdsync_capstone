@@ -14,6 +14,7 @@ export const livestockFields = [
   "calving_difficulty", "weaning_date", "management_decision", "quarantine_status",
   "has_calved", "sire_id", "dam_id",
   "vaccination_treatment_history", "body_condition_score", "health_status", "physical_assessment_notes",
+  "photo_urls",
 ] as const;
 
 export function cattleCategory(sex: unknown, birthDate: unknown, hasCalved = false) {
@@ -37,8 +38,9 @@ export function normalizeLivestock(body: Record<string, unknown>) {
     const healthStatus = normalized.health_status.trim().toLowerCase();
     normalized.health_status = healthStatus === "healthy" ? "good" : healthStatus;
   }
-  normalized.purchased = normalized.purchased === true;
-  normalized.has_calved = normalized.has_calved === true;
+  if ("purchased" in normalized) normalized.purchased = normalized.purchased === true;
+  if ("has_calved" in normalized) normalized.has_calved = normalized.has_calved === true;
+  if ("photo_urls" in normalized) normalized.photo_urls = Array.isArray(normalized.photo_urls) ? normalized.photo_urls : [];
   for (const field of ["birth_weight_kg", "current_weight_kg", "purchase_price", "body_condition_score"] as const) {
     if (normalized[field] !== null && normalized[field] !== undefined) normalized[field] = Number(normalized[field]);
   }
@@ -46,6 +48,8 @@ export function normalizeLivestock(body: Record<string, unknown>) {
 }
 
 export function validateLivestock(body: Record<string, unknown>) {
+  const photoUrls = body.photo_urls ?? [];
+  if (!Array.isArray(photoUrls) || photoUrls.length > 3 || photoUrls.some((url) => typeof url !== "string" || !url.startsWith("/uploads/cattle/"))) return "Up to 3 valid cattle photos are allowed";
   if (body.name != null && (typeof body.name !== "string" || body.name.length > 100)) return "Name cannot exceed 100 characters";
   if (!String(body.breed ?? "").trim()) return "Breed is required";
   if (!(["male", "female"] as string[]).includes(String(body.sex))) return "Sex must be male or female";

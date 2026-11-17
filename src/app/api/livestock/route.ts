@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole("veterinarian", "farm_aide"); if ("response" in auth) return auth.response;
   const raw = await request.json() as Record<string, unknown>;
   const body = normalizeLivestock(raw);
+  body.photo_urls ??= [];
   body.status = "active";
   body.acquisition_type ??= body.purchased === true ? "purchased" : "born_on_farm";
   body.quarantine_status = body.acquisition_type === "born_on_farm" ? "not_required" : "active";
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
   }
   const sireId = !pregnant || raw.pregnancy_sire_id == null || raw.pregnancy_sire_id === "" ? null : Number(raw.pregnancy_sire_id);
   if (sireId !== null && (!Number.isSafeInteger(sireId) || sireId < 1)) return NextResponse.json({ error: "Invalid sire" }, { status: 400 });
-  const values = livestockFields.map((field) => body[field] ?? null);
+  const values = livestockFields.map((field) => field === "photo_urls" ? JSON.stringify(body[field] ?? []) : body[field] ?? null);
   const client = await db.connect();
   try {
     await client.query("BEGIN");

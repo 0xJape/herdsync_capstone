@@ -4,11 +4,12 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarClock, Check, ChevronDown, CircleHelp, HeartPulse, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ImageCropModal from "@/components/ui/image-crop-modal";
 import { addDays, breedingEligibility, dateString } from "@/lib/breeding-rules";
 import { useCurrentRole } from "@/lib/use-current-role";
 
 type Animal = { id: number; tag_number: string; name: string | null; sex: "male" | "female"; breed: string; birth_date: string; sire_id: number | null; dam_id: number | null; quarantine_status?: "not_required" | "active" | "pending_clearance" | "released"; health_status: string | null; body_condition_score: number | null; physical_assessment_notes: string | null; vaccination_treatment_history: string | null; open_health_cases: number; latest_health_type: string | null; latest_health_date: string | null; latest_health_diagnosis: string | null; latest_health_record_status: string | null; latest_health_follow_up: string | null; breeding_block_reason: string | null; eligibility: { months: number; eligible: boolean; firstBreedingWindow: boolean; reasons: string[] } };
- type BreedingRecord = { id: number; livestock_id: number; sire_id: number | null; tag_number: string; livestock_name: string | null; event_type: string; event_date: string; sire_tag_number: string | null; sire_name?: string | null; pregnancy_status: string | null; expected_calving_date: string | null; cycle_number?: number; pregnancy_check_due_date?: string; workflow_status?: "pending" | "due" | "successful" | "unsuccessful"; details: string | null; performed_by: string | null };
+ type BreedingRecord = { id: number; livestock_id: number; sire_id: number | null; tag_number: string; livestock_name: string | null; event_type: string; event_date: string; sire_tag_number: string | null; sire_name?: string | null; pregnancy_status: string | null; expected_calving_date: string | null; cycle_number?: number; pregnancy_check_due_date?: string; workflow_status?: "pending" | "due" | "successful" | "unsuccessful"; details: string | null; performed_by: string | null; photo_urls: string[] };
 type Prediction = { livestock_id: number; tag_number: string; expected_date: string; source_event_id: number };
 type Pagination = { page: number; total: number; hasNext: boolean };
 type SirePerformance = { sireId: number; services: number; resolved: number; confirmed: number; successRate: number | null; conflicts: number };
@@ -33,6 +34,8 @@ export default function BreedingWorkspace({ embeddedDamId, onClose, onSaved, mod
   const [success, setSuccess] = useState("");
   const [selectionToast, setSelectionToast] = useState<{ message: string; error: boolean } | null>(null);
   const [details, setDetails] = useState(emptyDetails);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [cropSource, setCropSource] = useState("");
   const [showAddBreeding, setShowAddBreeding] = useState(Boolean((embeddedDamId && !embeddedReadOnly) || modalOnly));
   const [showBreedingGuide, setShowBreedingGuide] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
@@ -143,7 +146,17 @@ export default function BreedingWorkspace({ embeddedDamId, onClose, onSaved, mod
   const serviceEvent = ["natural_service", "artificial_insemination"].includes(event.event_type);
   const openChecks = new Map(serviceRecords.filter((record) => record.workflow_status !== "successful" && record.workflow_status !== "unsuccessful").map((record) => [record.id, { due_date: record.pregnancy_check_due_date ?? "" }]));
   function selectDam(animal: Animal) { if (animal.breeding_block_reason || !animal.eligibility.eligible || !heatReadyFemales.some((candidate) => candidate.id === animal.id)) return; setEvent((current) => ({ ...current, livestock_id: String(animal.id), sire_id: "", event_type: serviceEvent ? current.event_type : "natural_service" })); setError(""); }
-  function clearMatch() { setEvent({ ...emptyEvent, event_date: today() }); setDetails(emptyDetails); setQuery(""); setOpenSelector(null); setError(""); }
+  function clearMatch() { setEvent({ ...emptyEvent, event_date: today() }); setDetails(emptyDetails); setPhotos([]); setCropSource(""); setQuery(""); setOpenSelector(null); setError(""); }
+
+  function selectPhoto(file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Photo must be JPEG, PNG, or WebP."); return; }
+    if (file.size > 5 * 1024 * 1024) { setError("Photo must be 5 MB or smaller."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setCropSource(String(reader.result));
+    reader.onerror = () => setError("Photo could not be read.");
+    reader.readAsDataURL(file);
+  }
 
   function requestSave(e: FormEvent) {
     e.preventDefault();
@@ -175,7 +188,14 @@ export default function BreedingWorkspace({ embeddedDamId, onClose, onSaved, mod
         event.event_type === "artificial_insemination" ? `Insemination site: ${details.insemination_site || "Not recorded"}` : "",
         `Notes: ${details.notes || "None"}`,
       ].filter(Boolean).join("\n") : event.details;
-      const response = await fetch(`/api/livestock/${event.livestock_id}/breeding`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...event, sire_id: event.event_type === "artificial_insemination" ? "" : event.sire_id, details: structuredDetails }) });
+      const photoUrls: string[] = [];
+      for (const photo of photos) {
+        const upload = await fetch("/api/breeding/photos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image: photo }) });
+        const uploaded = await apiBody(upload);
+        if (!upload.ok) throw new Error(uploaded.error || "Breeding photo could not be saved");
+        photoUrls.push(uploaded.url);
+      }
+      const response = await fetch(`/api/livestock/${event.livestock_id}/breeding`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...event, sire_id: event.event_type === "artificial_insemination" ? "" : event.sire_id, details: structuredDetails, photo_urls: photoUrls }) });
       const body = await apiBody(response);
       if (!response.ok) throw new Error(body.error || "Breeding event could not be saved");
       const breedingRecordId = Number(body.id);
@@ -205,10 +225,12 @@ export default function BreedingWorkspace({ embeddedDamId, onClose, onSaved, mod
           <Field label="Performed by"><input maxLength={150} value={event.performed_by} onChange={(e) => setEvent({ ...event, performed_by: e.target.value })}/></Field>
           <Field label="Notes (50 characters max)"><textarea maxLength={50} value={event.details} onChange={(e) => setEvent({ ...event, details: e.target.value })}/></Field>
         </div>}
+        <div className="breeding-photo-field"><strong>Breeding photos <small>(optional · {photos.length}/3)</small></strong>{photos.length > 0 && <div className="breeding-photo-preview">{photos.map((photo, index) => <div key={index}><img src={photo} alt={`Breeding record preview ${index + 1}`}/><button type="button" aria-label={`Remove photo ${index + 1}`} onClick={() => setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}>×</button></div>)}</div>}{photos.length < 3 && <label className="secondary-button">Add photo<input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { selectPhoto(e.target.files?.[0]); e.currentTarget.value = ""; }}/></label>}<small>Up to 3 JPEG, PNG, or WebP images · 5 MB each</small></div>
         {serviceEvent && <div className="breeding-outcome-preview"><CalendarClock size={17}/><span>Pregnancy check due</span><strong>{addDays(event.event_date, 45)}</strong><small>Status starts as Awaiting Due</small></div>}
         <footer>{profileHeatEntry ? <button type="button" className="secondary-button" onClick={() => setShowAddBreeding(false)}>Cancel</button> : <button type="button" className="secondary-button" onClick={clearMatch}>Clear</button>}<button className="primary-button" disabled={saving || !event.livestock_id || (event.event_type === "natural_service" && !event.sire_id)}>{saving ? "Saving..." : `Review ${labels[event.event_type].toLowerCase()}`}</button></footer>
       </form>
     </section></div>}
+    {cropSource && <ImageCropModal src={cropSource} title="Adjust breeding photo" onCancel={() => setCropSource("")} onSave={(image) => { setPhotos((current) => [...current, image].slice(0, 3)); setCropSource(""); }}/>} 
     {showAddBreeding && confirmSave && <div className="cattle-modal-backdrop reproduction-confirm-backdrop" role="presentation"><section className="cattle-modal reproduction-confirm-modal is-positive" role="alertdialog" aria-modal="true" aria-labelledby="breeding-confirm-title"><div className="reproduction-confirm-icon"><Check size={24}/></div><header><span className="cattle-eyebrow">Confirm breeding record</span><h2 id="breeding-confirm-title">Add this {labels[event.event_type].toLowerCase()}?</h2><p>Review selected cattle and breeding date. This creates a pregnancy-check workflow.</p></header><div className="reproduction-confirm-summary"><div><span>Dam</span><strong>{selectedDam?.tag_number} · {selectedDam?.name || selectedDam?.breed}</strong></div><div><span>Breeding date</span><strong>{event.event_date}</strong></div>{event.event_type === "natural_service" && <div><span>Sire</span><strong>{selectedSire?.tag_number} · {selectedSire?.name || selectedSire?.breed}</strong></div>}<div><span>Check due</span><strong>{addDays(event.event_date, 45)}</strong></div></div>{error && <p role="alert" className="cattle-error">{error}</p>}<footer><button type="button" className="secondary-button" disabled={saving} onClick={() => setConfirmSave(false)}>Back and edit</button><button type="button" className="primary-button" disabled={saving} onClick={() => void save()}>{saving ? "Saving..." : "Confirm and add"}</button></footer></section></div>}
 
     <section className="breeding-records"><header><div><h2>Recent breeding records</h2></div><b>{serviceRecords.length} session{serviceRecords.length === 1 ? "" : "s"}</b></header><div className="operations-toolbar">
@@ -220,7 +242,7 @@ export default function BreedingWorkspace({ embeddedDamId, onClose, onSaved, mod
       </div>
     </div>
 
-    <section className="breeding-records"><div className="cattle-table-wrap"><table className="cattle-table breeding-session-table"><thead><tr><th>Dam</th><th>Sire</th><th>Method</th><th>Breeding date</th><th>Cycle</th><th>Status</th><th>Actions</th></tr></thead><tbody>{serviceRecords.length === 0 ? <tr><td colSpan={7} className="cattle-table-empty">No breeding records found for this cattle.</td></tr> : serviceRecords.slice(0, 12).map((record) => { const check = openChecks.get(record.id), isDue = !!check && check.due_date <= today(); const returnTo = embeddedDamId ? `/livestock/${embeddedDamId}?tab=pregnancy` : "/reproduction?tab=breeding"; return <tr key={record.id} className={isDue ? "breeding-check-due" : ""}><td><Link className="cattle-identity" href={`/livestock/${record.livestock_id}`}><strong>{record.tag_number}</strong><span>{record.livestock_name || "Unnamed dam"}</span></Link></td><td><div className="cattle-identity"><strong>{record.sire_tag_number || "Not recorded"}</strong><span>{record.sire_name || (record.event_type === "artificial_insemination" ? "AI sire" : "Unnamed sire")}</span></div></td><td><strong>{labels[record.event_type as EventType]}</strong></td><td><span className="breeding-check-date">{record.event_date.slice(0, 10)}</span></td><td><span className="breeding-cycle-cell">{record.cycle_number || 1}</span></td><td>{isDue ? <span className="breeding-alert"><AlertTriangle size={13}/> Check due</span> : check ? <span className="breeding-waiting">Awaiting check</span> : <span className={`breeding-resolved${record.workflow_status === "unsuccessful" ? " breeding-unsuccessful" : ""}`}>{record.workflow_status === "successful" ? "Successful" : "Unsuccessful"}</span>}</td><td><Link className="secondary-button" href={`/breeding/${record.id}?returnTo=${encodeURIComponent(returnTo)}`}>View record</Link></td></tr>; })}</tbody></table></div></section>
+    <section className="breeding-records"><div className="cattle-table-wrap"><table className="cattle-table breeding-session-table"><thead><tr><th>Photo</th><th>Dam</th><th>Sire</th><th>Method</th><th>Breeding date</th><th>Cycle</th><th>Status</th><th>Actions</th></tr></thead><tbody>{serviceRecords.length === 0 ? <tr><td colSpan={8} className="cattle-table-empty">No breeding records found for this cattle.</td></tr> : serviceRecords.slice(0, 12).map((record) => { const check = openChecks.get(record.id), isDue = !!check && check.due_date <= today(); const returnTo = embeddedDamId ? `/livestock/${embeddedDamId}?tab=pregnancy` : "/reproduction?tab=breeding"; return <tr key={record.id} className={isDue ? "breeding-check-due" : ""}><td>{record.photo_urls?.[0] ? <img className="breeding-record-photo" src={record.photo_urls[0]} alt="Breeding record"/> : <span className="breeding-record-photo is-empty" aria-label="No photo">🐄</span>}</td><td><Link className="cattle-identity" href={`/livestock/${record.livestock_id}`}><strong>{record.tag_number}</strong><span>{record.livestock_name || "Unnamed dam"}</span></Link></td><td><div className="cattle-identity"><strong>{record.sire_tag_number || "Not recorded"}</strong><span>{record.sire_name || (record.event_type === "artificial_insemination" ? "AI sire" : "Unnamed sire")}</span></div></td><td><strong>{labels[record.event_type as EventType]}</strong></td><td><span className="breeding-check-date">{record.event_date.slice(0, 10)}</span></td><td><span className="breeding-cycle-cell">{record.cycle_number || 1}</span></td><td>{isDue ? <span className="breeding-alert"><AlertTriangle size={13}/> Check due</span> : check ? <span className="breeding-waiting">Awaiting check</span> : <span className={`breeding-resolved${record.workflow_status === "unsuccessful" ? " breeding-unsuccessful" : ""}`}>{record.workflow_status === "successful" ? "Successful" : "Unsuccessful"}</span>}</td><td><Link className="secondary-button" href={`/breeding/${record.id}?returnTo=${encodeURIComponent(returnTo)}`}>View record</Link></td></tr>; })}</tbody></table></div></section>
     {data && <div className="breeding-records-pagination"><Pager pagination={data.pages.records} onPage={(page) => void changePage("records", page)}/></div>}</section>
   </div>;
 }

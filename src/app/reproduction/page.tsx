@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import BreedingPage from "@/app/breeding/page";
 import BreedingWorkspace from "@/app/breeding/breeding-workspace";
+import SuccessModal from "@/components/ui/success-modal";
 
 type Summary = { pregnancies: number; checksDue: number; nearCalving: number; careDue: number };
 type PregnancyCheck = { livestock_id: number; tag_number: string; name: string | null; breeding_date: string; check_date: string; expected_calving_date: string; source_event_id: number; result: string | null; check_status: "completed" | "not_yet_available" | "overdue" | "due" };
@@ -61,6 +62,7 @@ function ReproductionOverview() {
   const [confirmedBy, setConfirmedBy] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
+  const [success, setSuccess] = useState<{ message: string; href: string } | null>(null);
   const [toastWarning, setToastWarning] = useState(false);
   const [newPregnancyLivestockId, setNewPregnancyLivestockId] = useState<number | null>(null);
   const [newBreedingRecordId, setNewBreedingRecordId] = useState<number | null>(null);
@@ -175,6 +177,9 @@ function ReproductionOverview() {
       if (!response.ok) throw new Error(body.error || "Pregnancy outcome could not be saved");
       if (confirmed) { setNewPregnancyLivestockId(review.livestock_id); setFocus("split"); setWorkspaceView("pregnancies"); }
       setPendingOutcome(null); setReview(null); setToastWarning(false); setToast(confirmed ? `${review.tag_number} moved into Active pregnancies.` : `${review.tag_number} returned to breeding monitoring.`);
+      setSuccess(confirmed
+        ? { message: `Pregnancy confirmed for ${review.tag_number}. This breeding session is completed, the dam now appears under Active pregnancies, and expected calving tracking is available in her pregnancy profile.`, href: `/pregnancy/${body.id}` }
+        : { message: "Negative check recorded. This breeding session is completed and the dam returned to breeding monitoring.", href: "/breeding" });
       await loadChecks(pages.checks.page);
       if (confirmed) await loadPregnancies(1);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Pregnancy outcome could not be saved"); }
@@ -182,6 +187,7 @@ function ReproductionOverview() {
   }
 
   return <div className="reproduction-page">
+    {success && <SuccessModal message={success.message} onClose={() => setSuccess(null)} action={{ href: success.href, label: success.href.startsWith("/pregnancy/") ? "View pregnancy profile" : "View breeding records" }}/>} 
     <header className="reproduction-header"><div><h1>Reproduction Workspace</h1></div><div className="reproduction-header-actions"><button type="button" className="primary-button" onClick={() => setShowAddBreeding(true)}><Plus size={16}/> Record breeding</button></div></header>
     {showAddBreeding && <BreedingWorkspace modalOnly onClose={() => setShowAddBreeding(false)} onSaved={async (message, breedingRecordId) => { setShowAddBreeding(false); setBreedingNotice(message); setNewBreedingRecordId(breedingRecordId); setCheckSearch(""); setCheckFilter("upcoming"); await Promise.all([loadChecks(1, "upcoming", ""), loadTotals()]); }}/>} 
     {error && !review && <p role="alert" className="cattle-error">{error}</p>}
