@@ -23,7 +23,7 @@ import SuccessModal from "@/components/ui/success-modal";
 import HealthTreatmentModal from "@/components/health-treatment-modal";
 import { useCurrentRole } from "@/lib/use-current-role";
 
-type Animal = { id: number; tag_number: string; name: string | null };
+type Animal = { id: number; tag_number: string; name: string | null; status: string };
 type BatchDose = { dose: string; unit: string; route: string };
 type HealthRecord = {
   id: number;
@@ -51,6 +51,12 @@ type PregnancyAlert = { id: number; livestock_id: number; tag_number: string; li
 const dateOnly = (value: string) => value.slice(0, 10);
 const today = () => new Date().toISOString().slice(0, 10);
 const titleCase = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+const healthStatus = (record: HealthRecord) => {
+  if (record.archived_at) return { className: "archived", label: "Archived", tooltip: "Archived records remain available for history but do not drive care schedules." };
+  if (record.status === "open") return { className: "open", label: "Active", tooltip: "Active care still needs monitoring or follow-up." };
+  if ((record.follow_up_date && dateOnly(record.follow_up_date) >= today()) || (record.next_due_date && dateOnly(record.next_due_date) >= today())) return { className: "open", label: "Active", tooltip: "Care remains active because another review or treatment is scheduled." };
+  return { className: "resolved", label: "Completed", tooltip: "Completed care needs no further action." };
+};
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat("en-PH", {
     month: "short",
@@ -185,7 +191,7 @@ export default function HealthPage() {
   useEffect(() => {
     fetch("/api/livestock")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
-      .then(setAnimals)
+      .then((livestock: Animal[]) => setAnimals(livestock.filter((animal) => animal.status === "active")))
       .catch(() => setError("Could not load livestock"));
     fetch("/api/treatment-products")
       .then((response) => (response.ok ? response.json() : Promise.reject()))
@@ -718,9 +724,7 @@ export default function HealthPage() {
                   <td><time dateTime={record.record_date}>
                     {formatDate(record.record_date)}
                   </time></td>
-                  <td><span className={`record-status ${record.archived_at ? "archived" : record.status}`}>
-                    <span data-tooltip={record.archived_at ? "Archived records remain available for history but do not drive care schedules." : record.status === "open" ? "Active care still needs monitoring or follow-up." : "Completed care needs no further action."}>{record.archived_at ? "Archived" : record.status === "open" ? "Active" : "Completed"}</span>
-                  </span></td>
+                  <td>{(() => { const display = healthStatus(record); return <span className={`record-status ${display.className}`}><span data-tooltip={display.tooltip}>{display.label}</span></span>; })()}</td>
                   <td><div className="health-row-actions">
                     <button type="button" className="icon-button" aria-label={`View ${record.tag_number} health record`} data-tooltip="View this health record" onClick={() => setViewing(record)}>
                       <Eye size={15} />

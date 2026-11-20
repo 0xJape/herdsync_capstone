@@ -13,7 +13,7 @@ const formats = [
 ];
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole("veterinarian");
+  const auth = await requireRole("veterinarian", "faculty");
   if ("response" in auth) return auth.response;
   const form = await request.formData();
   const uploads = [["leftLogo", "report_left_logo"], ["rightLogo", "report_right_logo"]] as const;

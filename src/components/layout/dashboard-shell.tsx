@@ -94,7 +94,7 @@ export function DashboardShell({ title, children }: { title: string; eyebrow?: s
     }
   }
   const navigation = user ? links.filter(([, , href]) => access[user.role].includes(href)) : [];
-  const reproductionTab = searchParams.get("tab") ?? "breeding";
+  const reproductionTab = searchParams.get("tab");
   return <main className={dark ? "dark dashboard-shell" : "dashboard-shell"}>
     <aside id="workspace-sidebar" className={open ? "sidebar" : "sidebar sidebar-collapsed"} aria-label="Workspace sidebar">
       <Link href="/" aria-label="HerdSync home" data-tooltip="Go to HerdSync home" data-tooltip-side="right" className="flex items-center gap-3 font-semibold text-[var(--accent)]">

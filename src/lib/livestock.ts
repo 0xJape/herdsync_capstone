@@ -65,11 +65,10 @@ export function validateLivestock(body: Record<string, unknown>) {
   if (!acquisitionTypes.includes(acquisitionType as typeof acquisitionTypes[number])) return "Invalid acquisition type";
   if (acquisitionType !== "born_on_farm" && !String(body.acquisition_date ?? "").trim()) return "Acquisition date is required";
   if (body.acquisition_date != null && String(body.acquisition_date) > new Date().toISOString().slice(0, 10)) return "Acquisition date cannot be in the future";
-  if (acquisitionType === "purchased" && !String(body.seller ?? "").trim()) return "Seller is required for purchased cattle";
-  if (acquisitionType === "donated" && !String(body.seller ?? "").trim()) return "Donor is required for donated cattle";
+  if (acquisitionType === "purchased" && !String(body.seller ?? "").trim()) return "Seller or organization is required for purchased cattle";
+  if (acquisitionType === "donated" && !String(body.seller ?? "").trim()) return "Donor or organization is required for donated cattle";
   if (acquisitionType === "transferred_in" && !String(body.previous_farm ?? "").trim()) return "Previous farm is required for transferred cattle";
-  if (acquisitionType !== "born_on_farm" && !String(body.seller_contact ?? "").trim()) return "Acquisition contact is required";
-  if (acquisitionType !== "born_on_farm" && !/^\+639\d{9}$/.test(String(body.seller_contact))) return "Contact must use +639XXXXXXXXX format";
+  if (String(body.seller_contact ?? "").trim() && !/^\+639\d{9}$/.test(String(body.seller_contact))) return "Contact must use +639XXXXXXXXX format";
   if (acquisitionType !== "born_on_farm" && !String(body.seller_address ?? "").trim()) return "Acquisition address is required";
   if (acquisitionType === "purchased" && body.purchase_price == null) return "Purchase price is required for purchased cattle";
   for (const field of ["acquisition_date", "weaning_date"] as const) if (body[field] != null && (!/^\d{4}-\d{2}-\d{2}$/.test(String(body[field])) || Number.isNaN(Date.parse(`${body[field]}T00:00:00Z`)))) return `Invalid ${field}`;
@@ -78,7 +77,7 @@ export function validateLivestock(body: Record<string, unknown>) {
   if (!quarantineStatuses.includes(String(body.quarantine_status ?? "not_required") as typeof quarantineStatuses[number])) return "Invalid quarantine status";
   if (body.body_condition_score != null && (!Number.isInteger(Number(body.body_condition_score)) || Number(body.body_condition_score) < 1 || Number(body.body_condition_score) > 6)) return "BCS must be an integer from 1 to 6";
   if (body.health_status != null && !healthStatuses.includes(String(body.health_status) as typeof healthStatuses[number])) return "Invalid health status";
-  for (const field of ["notes", "vaccination_treatment_history", "physical_assessment_notes"] as const) if (body[field] != null && String(body[field]).length > 50) return `${field.replaceAll("_", " ")} cannot exceed 50 characters`;
+  for (const field of ["notes", "vaccination_treatment_history", "physical_assessment_notes"] as const) if (body[field] != null && String(body[field]).length > 150) return `${field.replaceAll("_", " ")} cannot exceed 150 characters`;
   if (!birthTypes.includes(String(body.birth_type) as typeof birthTypes[number])) return "Birth type is required";
   if (body.calf_vigor != null && !calfVigorScores.includes(String(body.calf_vigor) as typeof calfVigorScores[number])) return "Invalid calf vigor";
   if (body.calving_difficulty != null && !calvingDifficultyScores.includes(String(body.calving_difficulty) as typeof calvingDifficultyScores[number])) return "Invalid calving difficulty";

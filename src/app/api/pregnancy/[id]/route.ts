@@ -11,7 +11,7 @@ const addMonth = (value: string) => { const date = new Date(`${value}T00:00:00Z`
 async function activePregnancy(id: number, byLivestock = false) {
   const result = await db.query(`SELECT dam.id livestock_id, dam.tag_number, dam.name, dam.breed, dam.birth_date, dam.health_status, dam.body_condition_score, dam.current_weight_kg,
       confirmation.id confirmation_id, service.id service_id, service.event_date conception_date,
-      CASE WHEN service.expected_calving_date > service.event_date THEN service.expected_calving_date ELSE service.event_date + 283 END expected_calving_date,
+      service.event_date + 283 expected_calving_date,
       sire.id sire_id, sire.tag_number sire_tag_number, sire.name sire_name, sire.breed sire_breed
     FROM livestock dam
     JOIN LATERAL (SELECT * FROM breeding_records confirmation WHERE confirmation.livestock_id = dam.id AND confirmation.event_type = 'pregnancy_confirmed' AND confirmation.pregnancy_status = 'pregnant' AND confirmation.archived_at IS NULL
@@ -28,7 +28,7 @@ async function activePregnancy(id: number, byLivestock = false) {
 async function completedCalving(id: number) {
   const result = await db.query(`SELECT event.*, dam.tag_number, dam.name, dam.breed, dam.birth_date dam_birth_date, dam.health_status, dam.body_condition_score, dam.current_weight_kg,
       service.event_date conception_date,
-      CASE WHEN service.expected_calving_date > service.event_date THEN service.expected_calving_date ELSE service.event_date + 283 END expected_calving_date,
+      service.event_date + 283 expected_calving_date,
       sire.id sire_id, sire.tag_number sire_tag_number, sire.name sire_name, sire.breed sire_breed,
       COALESCE(json_agg(json_build_object('id', outcome.id, 'birth_order', outcome.birth_order, 'outcome', outcome.outcome, 'livestock_id', outcome.livestock_id, 'tag_number', calf.tag_number, 'name', outcome.name, 'sex', outcome.sex, 'birth_weight_kg', outcome.birth_weight_kg, 'calf_vigor', outcome.calf_vigor, 'notes', outcome.notes) ORDER BY outcome.birth_order) FILTER (WHERE outcome.id IS NOT NULL), '[]') outcomes
     FROM calving_events event

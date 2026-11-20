@@ -38,8 +38,9 @@ export async function GET(request: NextRequest) {
       JOIN breeding_records service ON service.id = c.service_id
       WHERE service.event_date BETWEEN $1 AND $2 OR c.birth_date BETWEEN $1 AND $2
       ORDER BY c.birth_date,c.id,o.birth_order`, [from, to]),
-    db.query(`SELECT confirmation.livestock_id,confirmation.event_type,confirmation.expected_calving_date
+    db.query(`SELECT confirmation.livestock_id,confirmation.event_type,service.event_date conception_date
       FROM breeding_records confirmation
+      LEFT JOIN breeding_records service ON service.id = confirmation.source_service_id
       WHERE confirmation.archived_at IS NULL AND confirmation.event_type IN ('pregnancy_confirmed','pregnancy_loss')
         AND (confirmation.event_type = 'pregnancy_loss' OR NOT EXISTS (
           SELECT 1 FROM calving_events c WHERE c.pregnancy_confirmation_id = confirmation.id
@@ -97,6 +98,13 @@ export async function GET(request: NextRequest) {
     negative: breeding.filter((row) => monthKey(row.event_date) === month && row.event_type === "pregnancy_negative").length,
     losses: breeding.filter((row) => monthKey(row.event_date) === month && row.event_type === "pregnancy_loss").length,
   }));
+  const reproductionProgress = monthKeys.map((month) => ({
+    month: monthLabel(month),
+    heatObservations: breeding.filter((row) => row.event_type === "heat_observed" && monthKey(row.event_date) === month).length,
+    breedingServices: services.filter((row) => monthKey(row.event_date) === month).length,
+    confirmedPregnancies: breeding.filter((row) => row.event_type === "pregnancy_confirmed" && monthKey(row.event_date) === month).length,
+    calvings: new Set(calvingResult.rows.filter((row) => ids.has(Number(row.dam_id)) && row.birth_in_period && monthKey(row.birth_date) === month).map((row) => Number(row.id))).size,
+  }));
   const healthMonthly = monthKeys.map((month) => ({
     month: monthLabel(month),
     open: health.filter((row) => monthKey(row.record_date) === month && row.status === "open").length,
@@ -123,6 +131,17 @@ export async function GET(request: NextRequest) {
   const liveCalves = calfOutcomes.filter((row) => row.outcome === "live").length;
   const calvingOutcomes = ["live", "stillborn", "neonatal_death"].map((outcome) => ({ label: displayLabel(outcome), value: calfOutcomes.filter((row) => row.outcome === outcome).length }));
   const currentReproduction = reproductionStatusResult.rows.filter((row) => ids.has(Number(row.livestock_id)));
+  const todayTime = Date.parse(`${now.toISOString().slice(0, 10)}T00:00:00Z`);
+  const pregnancyStages = [
+    { label: "First Trimester", value: 0 },
+    { label: "Second Trimester", value: 0 },
+    { label: "Third Trimester", value: 0 },
+    { label: "Overdue", value: 0 },
+  ];
+  currentReproduction.filter((row) => row.event_type === "pregnancy_confirmed" && row.conception_date).forEach((row) => {
+    const days = Math.max(0, Math.floor((todayTime - Date.parse(`${String(row.conception_date).slice(0, 10)}T00:00:00Z`)) / 86400000));
+    pregnancyStages[days >= 283 ? 3 : days >= 191 ? 2 : days >= 96 ? 1 : 0].value++;
+  });
   const nearCalvingEnd = new Date(); nearCalvingEnd.setUTCDate(nearCalvingEnd.getUTCDate() + 30);
   const nearCalvingDate = nearCalvingEnd.toISOString().slice(0, 10);
   const reproductionStatuses = {
@@ -137,7 +156,8 @@ export async function GET(request: NextRequest) {
     kpis: { liveHerd: live.length, conceptionRate: completedOutcomes ? confirmed / completedOutcomes * 100 : 0, calvingRate: confirmed ? calvingIds.size / confirmed * 100 : 0, liveCalfRate: calfOutcomes.length ? liveCalves / calfOutcomes.length * 100 : 0, activeHealthCases: activeCases, mortalityRate: filteredAnimals.length ? filteredAnimals.filter((animal) => animal.status === "deceased").length / filteredAnimals.length * 100 : 0 },
     herdMovement, composition, herdStatuses,
     reproductionFunnel: [{ label: "Heat Observations", value: heat }, { label: "Breeding Services", value: services.length }, { label: "Pregnancies Confirmed", value: confirmed }, { label: "Calvings Recorded", value: calvingIds.size }],
-    pregnancyOutcomes, calvingOutcomes, breedingMethods, reproductionStatuses, healthTypes, healthMonthly,
+    reproductionProgress,
+    pregnancyOutcomes, pregnancyStages, calvingOutcomes, breedingMethods, reproductionStatuses, healthTypes, healthMonthly,
     healthStatuses: { activeCases, resolvedCases, overdueFollowUps: overdue, mortalityRate: filteredAnimals.length ? filteredAnimals.filter((animal) => animal.status === "deceased").length / filteredAnimals.length * 100 : 0 },
     insights: [
       { level: overdue ? "alert" : "positive", title: overdue ? `${overdue} overdue health follow-up${overdue === 1 ? "" : "s"}` : "Health follow-ups are current", detail: overdue ? "Review unresolved records whose follow-up date has passed." : "No overdue follow-up was found in this period.", href: "/health" },

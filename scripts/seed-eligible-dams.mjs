@@ -15,6 +15,11 @@ try {
     ["2026-045", "Rosie", "Simmental", 3],
     ["2026-046", "Pearl", "Brown Swiss", 4],
     ["2026-047", "Clover", "Charolais", 3],
+    ["2026-048", "Fern", "Limousin", 4],
+    ["2026-049", "Iris", "Brahman", 3],
+    ["2026-050", "Luna", "Holstein", 4],
+    ["2026-051", "Olive", "Jersey", 3],
+    ["2026-052", "Poppy", "Angus", 4],
   ];
 
   for (const [tag, name, breed, score] of dams) {

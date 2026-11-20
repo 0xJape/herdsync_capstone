@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
   else if (entity !== "all") { values.push(entity); where.push(`a.entity_type = $${values.length}`); }
   const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
   values.push(20, (page - 1) * 20);
-  const [result, summary] = await Promise.all([db.query(`SELECT a.id, a.action, a.entity_type AS "entityType", a.entity_id AS "entityId", a.title,
-      COALESCE(a.detail, '—') detail, COALESCE(u.display_name, 'System') actor, u.profile_image_url AS "actorImageUrl",
-      COALESCE(u.email, 'System generated') AS "actorEmail", a.created_at AS "createdAt",
+    const [result, summary] = await Promise.all([db.query(`SELECT a.id, a.action, CASE a.entity_type WHEN 'livestock' THEN 'Cattle' WHEN 'health' THEN 'Health care' WHEN 'weight' THEN 'Weight update' WHEN 'breeding' THEN 'Breeding' WHEN 'pregnancy_checkup' THEN 'Pregnancy checkup' WHEN 'calving_event' THEN 'Calving' WHEN 'user' THEN 'Staff account' WHEN 'settings' THEN 'Farm settings' ELSE 'Farm activity' END AS "entityType", NULL::bigint AS "entityId", REPLACE(a.title, '_', ' ') AS title,
+      REPLACE(COALESCE(a.detail, '—'), '_', ' ') detail, COALESCE(u.display_name, 'HerdSync') actor, u.profile_image_url AS "actorImageUrl",
+      COALESCE(u.email, 'Automatic activity') AS "actorEmail", a.created_at AS "createdAt",
       COUNT(*) OVER()::int total
     FROM activity_logs a LEFT JOIN users u ON u.id = a.user_id
     ${clause} ORDER BY a.created_at DESC LIMIT $${values.length - 1} OFFSET $${values.length}`, values), db.query(`SELECT

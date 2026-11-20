@@ -26,8 +26,9 @@ export async function PUT(request: NextRequest, context: Context) {
   if (body.record_type !== undefined && (typeof body.record_type !== "string" || !body.record_type.trim() || body.record_type.length > 100)) return NextResponse.json({ error: "Invalid record type" }, { status: 400 });
   for (const field of ["record_date", "follow_up_date", "treatment_start_date", "treatment_end_date", "withdrawal_end_date", "next_due_date"] as const) if (body[field] !== undefined && body[field] !== "" && (typeof body[field] !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body[field]))) return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
   for (const [field, max] of [["veterinarian", 100], ["diagnosis", 5000], ["details", 50], ["treatment", 5000], ["medication_name", 200], ["dose", 100], ["administration_route", 100]] as const) if (body[field] !== undefined && (typeof body[field] !== "string" || body[field].length > max)) return NextResponse.json({ error: `${field} is too long` }, { status: 400 });
-  const current = await db.query("SELECT * FROM health_records WHERE id = $1 AND archived_at IS NULL", [id]);
+  const current = await db.query("SELECT h.*, l.status livestock_status, l.archived_at livestock_archived_at FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.id = $1 AND h.archived_at IS NULL", [id]);
   if (!current.rows[0]) return NextResponse.json({ error: "Health record not found" }, { status: 404 });
+  if (current.rows[0].livestock_status !== "active" || current.rows[0].livestock_archived_at) return NextResponse.json({ error: "Inactive cattle health records are read-only" }, { status: 409 });
   const merged = { ...current.rows[0], ...body };
   const recordType = String(merged.record_type).trim();
   if (!healthRecordTypes.has(recordType)) return NextResponse.json({ error: "Invalid record type" }, { status: 400 });
@@ -41,7 +42,7 @@ export async function PUT(request: NextRequest, context: Context) {
   if (body.livestock_id !== undefined) {
     const livestockId = Number(body.livestock_id);
     if (!Number.isSafeInteger(livestockId) || livestockId < 1) return NextResponse.json({ error: "Invalid livestock" }, { status: 400 });
-    const animal = await db.query("SELECT 1 FROM livestock WHERE id = $1 AND archived_at IS NULL", [livestockId]);
+    const animal = await db.query("SELECT 1 FROM livestock WHERE id = $1 AND status = 'active' AND archived_at IS NULL", [livestockId]);
     if (!animal.rowCount) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
     body.livestock_id = livestockId;
   }

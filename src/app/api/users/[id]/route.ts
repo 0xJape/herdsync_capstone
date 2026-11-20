@@ -19,14 +19,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (password !== undefined && password.length < 10) return NextResponse.json({ error: "Password must be at least 10 characters" }, { status: 400 });
   if (displayName !== undefined && (displayName.length < 2 || displayName.length > 100)) return NextResponse.json({ error: "Name must be 2–100 characters" }, { status: 400 });
   if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
-  if ((displayName !== undefined || email !== undefined) && !adminPassword) return NextResponse.json({ error: "Enter your administrator password" }, { status: 400 });
+  if ((displayName !== undefined || email !== undefined || password !== undefined) && !adminPassword) return NextResponse.json({ error: "Enter your administrator password" }, { status: 400 });
   if (String(id) === auth.user.id && (active === false || (role !== undefined && role !== "admin"))) return NextResponse.json({ error: "You cannot remove your own administrator access" }, { status: 409 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");
     const current = await client.query("SELECT display_name, role, active FROM users WHERE id = $1 FOR UPDATE", [id]);
     if (!current.rowCount) { await client.query("ROLLBACK"); return NextResponse.json({ error: "User not found" }, { status: 404 }); }
-    if (displayName !== undefined || email !== undefined) { const administrator = await client.query("SELECT password_hash FROM users WHERE id = $1", [auth.user.id]); if (!administrator.rowCount || !await verifyPassword(adminPassword!, administrator.rows[0].password_hash)) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Administrator password is incorrect" }, { status: 403 }); } }
+    if (displayName !== undefined || email !== undefined || password !== undefined) { const administrator = await client.query("SELECT password_hash FROM users WHERE id = $1", [auth.user.id]); if (!administrator.rowCount || !await verifyPassword(adminPassword!, administrator.rows[0].password_hash)) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Administrator password is incorrect" }, { status: 403 }); } }
     if ((active === false || (role !== undefined && role !== "admin")) && current.rows[0].role === "admin" && current.rows[0].active) { const admins = await client.query("SELECT COUNT(*)::int count FROM users WHERE role = 'admin' AND active"); if (admins.rows[0].count <= 1) { await client.query("ROLLBACK"); return NextResponse.json({ error: "At least one active administrator is required" }, { status: 409 }); } }
     const fields: string[] = [], values: unknown[] = [];
     if (role !== undefined) { values.push(role); fields.push(`role = $${values.length}`); }

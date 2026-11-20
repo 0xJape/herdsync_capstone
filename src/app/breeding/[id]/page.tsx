@@ -27,6 +27,7 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [confirmedBy, setConfirmedBy] = useState("");
   const [pendingOutcome, setPendingOutcome] = useState<boolean | null>(null);
+  const [validationWarning, setValidationWarning] = useState(false);
   const [viewPhoto, setViewPhoto] = useState<number | null>(null);
   const [photoSwipeStart, setPhotoSwipeStart] = useState<number | null>(null);
   const load = useCallback(async () => { const response = await fetch(`/api/breeding/${id}`, { cache: "no-store" }); const body = await response.json(); if (!response.ok) throw new Error(body.error || "Breeding record could not load"); setData(body); }, [id]);
@@ -34,9 +35,9 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     const notes = document.querySelector<HTMLTextAreaElement>(".pregnancy-outcome-form textarea");
     if (!notes) return;
-    notes.maxLength = 50;
+    notes.maxLength = 150;
     const label = notes.closest("label");
-    if (label?.firstChild?.nodeType === Node.TEXT_NODE) label.firstChild.textContent = "Notes (50 characters max)";
+    if (label?.firstChild?.nodeType === Node.TEXT_NODE) label.firstChild.textContent = "Notes (150 characters max)";
   }, [data]);
 
   async function recordOutcome(confirmed: boolean) {
@@ -59,7 +60,7 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
   }
 
   function requestOutcome(confirmed: boolean) {
-    if (!outcomeNotes.trim() || !confirmedBy.trim()) { setError("Notes and confirmed by are required"); return; }
+    if (!outcomeNotes.trim() || !confirmedBy.trim()) { setValidationWarning(true); return; }
     setError(""); setPendingOutcome(confirmed);
   }
 
@@ -76,6 +77,7 @@ export default function BreedingRecordPage({ params }: { params: Promise<{ id: s
 
   return <div className="breeding-record-page">
     {success && <SuccessModal message={success.message} onClose={() => setSuccess(null)} action={{ href: success.href, label: success.href.startsWith("/pregnancy/") ? "View pregnancy profile" : "View breeding records" }}/>} 
+    {validationWarning && <div className="cattle-modal-backdrop reproduction-confirm-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setValidationWarning(false)}><section className="cattle-modal reproduction-confirm-modal is-negative" role="alertdialog" aria-modal="true" aria-labelledby="outcome-warning-title"><div className="reproduction-confirm-icon"><AlertTriangle size={24}/></div><header><span className="cattle-eyebrow">Information required</span><h2 id="outcome-warning-title">Complete pregnancy check</h2><p>Enter notes and confirmed-by name before recording outcome.</p></header><footer><button type="button" className="primary-button" onClick={() => setValidationWarning(false)}>Return to form</button></footer></section></div>}
     {pendingOutcome !== null && <div className="cattle-modal-backdrop reproduction-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setPendingOutcome(null); }}><section className={`cattle-modal reproduction-confirm-modal ${pendingOutcome ? "is-positive" : "is-negative"}`} role="alertdialog" aria-modal="true" aria-labelledby="outcome-confirm-title"><div className="reproduction-confirm-icon">{pendingOutcome ? <Check size={24}/> : <X size={24}/>}</div><header><span className="cattle-eyebrow">Final confirmation</span><h2 id="outcome-confirm-title">Record as {pendingOutcome ? "pregnant" : "not pregnant"}?</h2><p>This completes breeding session #{record.id} for <strong>{record.tag_number}</strong>. Outcome cannot be edited from this screen.</p></header><div className="reproduction-confirm-summary"><div><span>Findings</span><p>{outcomeNotes}</p></div><div><span>Confirmed by</span><strong>{confirmedBy}</strong></div></div>{error && <p role="alert" className="cattle-error">{error}</p>}<footer><button type="button" className="secondary-button" disabled={saving} onClick={() => setPendingOutcome(null)}>Go back</button><button type="button" className={pendingOutcome ? "primary-button" : "danger-button"} disabled={saving} onClick={() => recordOutcome(pendingOutcome)}>{saving ? "Saving…" : `Yes, record ${pendingOutcome ? "pregnant" : "not pregnant"}`}</button></footer></section></div>}
     <header className="breeding-detail-header"><div><Link href={returnTo} className="breeding-back"><ArrowLeft size={16}/> Breeding records</Link><span className="cattle-eyebrow">Breeding session #{record.id}</span><h1>{record.tag_number} × {record.sire_tag_number || "Unregistered sire"}</h1></div><div className="breeding-detail-actions"><span className={`${resolved ? "breeding-resolved" : due ? "breeding-alert" : "breeding-waiting"}${unsuccessful ? " breeding-unsuccessful" : ""}`}>{resolved ? <>{outcome?.event_type === "pregnancy_negative" ? <X size={13}/> : <Check size={13}/>} {outcomeLabel}</> : due ? <><AlertTriangle size={13}/> Check due</> : "Awaiting check"}</span><button type="button" className="secondary-button print-record-button" onClick={() => window.print()}><Printer size={16}/> Print / Save PDF</button></div></header>
 

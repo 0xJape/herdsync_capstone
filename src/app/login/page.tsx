@@ -16,14 +16,17 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage("");
+    if (submitting) return;
+    setSubmitting(true);
+    setMessage("Signing in…");
     const data = new FormData(event.currentTarget);
     const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: data.get("email"), password: data.get("password") }) });
     const body = await response.json();
-    if (!response.ok) { setMessage(body.error ?? "Sign in failed"); return; }
+    if (!response.ok) { setMessage(body.error ?? "Sign in failed"); setSubmitting(false); return; }
     const next = new URLSearchParams(window.location.search).get("next");
     const home = body.role === "admin" ? "/activity" : "/dashboard";
     router.replace(next?.startsWith("/") && !next.startsWith("//") ? next : home);

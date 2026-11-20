@@ -28,6 +28,7 @@ export default function CattlePreview({ photos = [], onPhotosChange, onPhotoAdd,
   const [activePhoto, setActivePhoto] = useState(0);
   const [pending, setPending] = useState<string[]>([]);
   const [editingPhotos, setEditingPhotos] = useState(false);
+  const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set());
   const currentPhotos = onPhotosChange || onPhotoAdd ? photos : localPhotos;
 
   useEffect(() => {
@@ -68,13 +69,14 @@ export default function CattlePreview({ photos = [], onPhotosChange, onPhotoAdd,
   }
 
   const shownPhoto = currentPhotos[activePhoto] ?? currentPhotos[0];
+  const markPhotoFailed = (photo: string) => setFailedPhotos((failed) => new Set(failed).add(photo));
   return <div className="cattle-preview photo-preview" aria-label="Cattle photos">
-    <div className="photo-preview-main">{shownPhoto ? <img key={shownPhoto} className="photo-slide" src={shownPhoto} alt={`Cattle photo ${activePhoto + 1}`}/> : <div className="cow-placeholder"><img src="/icons/calf_icon.png" alt=""/><small>No photo added</small></div>}</div>
+    <div className="photo-preview-main">{shownPhoto && !failedPhotos.has(shownPhoto) ? <img key={shownPhoto} className="photo-slide" src={shownPhoto} alt={`Cattle photo ${activePhoto + 1}`} onError={() => markPhotoFailed(shownPhoto)}/> : <div className="cow-placeholder"><img src="/icons/calf_icon.png" alt=""/><small>{shownPhoto ? "Photo unavailable" : "No photo added"}</small></div>}</div>
     <span className="photo-count">{currentPhotos.length}/3 photos</span>
     {currentPhotos.length > 1 && <div className="photo-dots" aria-label="Choose cattle photo">{currentPhotos.map((photo, index) => <button type="button" className={index === activePhoto ? "active" : ""} key={`${photo.slice(-16)}-${index}`} aria-label={`Show photo ${index + 1}`} onClick={() => setActivePhoto(index)}/>)}</div>}
     {!onPhotosChange && currentPhotos.length < 3 && <label className="secondary-button photo-edit-button"><ImagePlus size={16}/> Add photo ({3 - currentPhotos.length} left)<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addPhotos}/></label>}
     {onPhotosChange && <div className="photo-preview-actions">
-      {editingPhotos && currentPhotos.map((photo, index) => <div className="photo-thumb" key={`${photo.slice(-24)}-${index}`}><img src={photo} alt={`Cattle photo ${index + 1}`}/><button type="button" aria-label={`Remove photo ${index + 1}`} onClick={async () => { try { await onPhotosChange(currentPhotos.filter((_, i) => i !== index)); } catch (cause) { setError(cause instanceof Error ? cause.message : "Photo removal failed"); } }}><X size={13}/></button></div>)}
+      {editingPhotos && currentPhotos.map((photo, index) => <div className="photo-thumb" key={`${photo.slice(-24)}-${index}`}>{failedPhotos.has(photo) ? <span className="photo-thumb-unavailable">Unavailable</span> : <img src={photo} alt={`Cattle photo ${index + 1}`} onError={() => markPhotoFailed(photo)}/>}<button type="button" aria-label={`Remove photo ${index + 1}`} onClick={async () => { try { await onPhotosChange(currentPhotos.filter((_, i) => i !== index)); } catch (cause) { setError(cause instanceof Error ? cause.message : "Photo removal failed"); } }}><X size={13}/></button></div>)}
       {editingPhotos && currentPhotos.length < 3 && <label className="photo-add"><ImagePlus size={18}/><span>Add photo</span><small>Max 5 MB each</small><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={addPhotos}/></label>}
       <button type="button" className="secondary-button photo-toggle-edit" aria-pressed={editingPhotos} onClick={() => setEditingPhotos((editing) => !editing)}>{!editingPhotos && <Pencil size={15}/>} {editingPhotos ? "Done" : "Edit photos"}</button>
     </div>}

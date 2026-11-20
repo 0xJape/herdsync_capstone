@@ -59,8 +59,8 @@ export async function POST(request: NextRequest, context: Context) {
   const eventType = String(body.event_type).trim(), eventDate = dateOnly(body.event_date);
   if (!breedingEventTypes.has(eventType) || eventType === "calving") return NextResponse.json({ error: "Invalid breeding event" }, { status: 400 });
   const notes = String(body.details ?? "").match(/(?:^|\n)Notes: (.*)$/)?.[1] ?? body.details;
-  if (notes != null && !validText(notes, 50)) return NextResponse.json({ error: "Breeding notes must be at most 50 characters" }, { status: 400 });
-  if (eventType === "heat_observed" && body.details != null && !validText(body.details, 50)) return NextResponse.json({ error: "Heat notes must be at most 50 characters" }, { status: 400 });
+  if (notes != null && !validText(notes, 150)) return NextResponse.json({ error: "Breeding notes must be at most 150 characters" }, { status: 400 });
+  if (eventType === "heat_observed" && body.details != null && !validText(body.details, 150)) return NextResponse.json({ error: "Heat notes must be at most 150 characters" }, { status: 400 });
   if (eventType === "heat_watch_removed" && !["not_in_heat", "pregnant", "entered_by_mistake"].includes(String(body.details))) return NextResponse.json({ error: "Valid heat-watch removal reason is required" }, { status: 400 });
   if (["pregnancy_confirmed", "pregnancy_negative"].includes(eventType) && (!validText(body.details, 10000, true) || !validText(body.performed_by, 150, true))) return NextResponse.json({ error: "Pregnancy check notes and confirmed by are required" }, { status: 400 });
   if (!eventDate || eventDate > new Date().toISOString().slice(0, 10)) return NextResponse.json({ error: "Breeding event cannot be in the future" }, { status: 400 });

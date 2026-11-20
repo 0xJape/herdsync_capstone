@@ -23,9 +23,13 @@ export async function POST(request: NextRequest, { params }: Context) {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const source = await client.query("SELECT h.*, l.tag_number FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.id = $1 AND h.archived_at IS NULL FOR UPDATE", [id]);
+    const source = await client.query("SELECT h.*, l.tag_number, l.status livestock_status, l.archived_at livestock_archived_at FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.id = $1 AND h.archived_at IS NULL FOR UPDATE OF h, l", [id]);
     if (!source.rows[0]) { await client.query("ROLLBACK"); return NextResponse.json({ error: "Health record not found" }, { status: 404 }); }
     const record = source.rows[0];
+    if (record.livestock_status !== "active" || record.livestock_archived_at) {
+      await client.query("ROLLBACK");
+      return NextResponse.json({ error: "Inactive cattle cannot receive health checkups" }, { status: 409 });
+    }
     if (record.status !== "open" || !["checkup", "illness", "injury", "treatment", "antibiotics", "anti_inflammatory"].includes(record.record_type)) {
       await client.query("ROLLBACK");
       return NextResponse.json({ error: "Only active clinical records can receive checkups" }, { status: 409 });
