@@ -1,0 +1,94 @@
+CATTLE MANAGEMENT TERMS PRESENT IN HERDSYNC BUT MISSING FROM THE PROVIDED GLOSSARY
+
+Assessment scope: HerdSync cattle-management workflows, database schema, source code, and project documentation.
+Note: Definitions below describe how each term is used in HerdSync. Add verified academic or regulatory citations before using them in a formal manuscript.
+
+Admission Veterinary Review. A veterinary assessment of purchased or externally sourced cattle before release from quarantine and entry into the resident herd.
+
+Administration Route. The method by which a medicine, vaccine, or treatment is delivered, such as oral, intramuscular, subcutaneous, intravenous, or topical administration.
+
+Antibiotic Treatment. Use of an antimicrobial medicine to treat a diagnosed or suspected bacterial infection under an approved veterinary protocol, with treatment and withdrawal dates recorded.
+
+Biosecurity Clearance. Documented confirmation that an animal has satisfied required quarantine, health-assessment, testing, treatment, and withdrawal conditions before joining the resident herd.
+
+Breeding Eligibility. The determination that an animal can enter a breeding activity based on sex, age, health, Body Condition Score, reproductive status, quarantine status, treatment restrictions, and farm policy.
+
+Breeding Soundness Examination. A structured evaluation of a breeding animal’s physical and reproductive fitness before it is approved for breeding.
+
+Calf Care Plan. A scheduled set of post-birth care activities for a calf, including newborn assessment, identification, preventive care, and follow-up health checks.
+
+Calf Vigor Score. A structured assessment of a newborn calf’s energy, alertness, movement, breathing, ability to stand, and ability to suckle after birth.
+
+Calving Difficulty. The level of assistance required during birth, recorded in HerdSync as unassisted, minor assistance, major assistance, or caesarean.
+
+Caesarean Section. Surgical delivery of a calf when vaginal delivery is unsafe or cannot be completed normally.
+
+Clinical Follow-Up. A scheduled reassessment used to review an animal’s response to treatment, recovery status, unresolved symptoms, and need for additional care.
+
+Conception Rate. The proportion of recorded breeding services that result in confirmed pregnancy during a defined period.
+
+Deworming. Administration of an anthelmintic product to control internal parasites, with product, dose, route, administration date, next due date, and responsible personnel recorded.
+
+Dystocia. Difficult or abnormal calving that requires assistance and may increase health risks for both dam and calf.
+
+Estrus (Heat). The reproductive stage during which a female is sexually receptive and may be selected for natural breeding or artificial insemination.
+
+Expected Calving Date. The estimated date on which a pregnant dam is expected to give birth, calculated from the recorded conception or breeding date and the expected cattle gestation period.
+
+Gestation Checkup. A scheduled assessment during pregnancy used to record gestation stage, health condition, Body Condition Score, weight, clinical findings, veterinarian, and next checkup date.
+
+Heat Observation. A recorded observation that a female displays signs of estrus, supporting the timing of breeding or artificial insemination.
+
+Health Assessment. A structured evaluation of an animal’s current physical condition, clinical signs, diagnosis, health status, and need for treatment or monitoring.
+
+Inbreeding Risk. The possibility that a proposed mating involves animals with a close genetic relationship, such as self, parent–offspring, or full siblings, which may increase inherited health and performance risks.
+
+Lactation. The period during which a cow produces milk following calving.
+
+Live-Calf Rate. The proportion of calves born alive among all recorded calf outcomes during a defined period.
+
+Mating Compatibility. Evaluation of a proposed dam and sire pairing using pedigree, genetic defects, health status, reproductive fitness, and farm breeding policy.
+
+Natural Breeding (Natural Service). A breeding method in which a sire directly mates with a dam, with the pair, service date, handler, and related observations recorded.
+
+Neonatal Death. Death of a calf after being born alive during the neonatal period; HerdSync records the calf identity, survival details, observations, treatment, and cause when known.
+
+Newborn Care. Immediate and early care following birth, including assessment of breathing, vigor, standing, suckling, colostrum access, abnormalities, identification, and follow-up needs.
+
+Offspring Lineage. The recorded biological relationship connecting an animal to its sire, dam, and offspring for pedigree and breeding-history management.
+
+Parasite Control. A planned herd-health program for preventing, monitoring, and treating internal or external parasites based on animal risk, clinical evidence, testing, season, grazing conditions, and veterinary guidance.
+
+Pedigree. A documented record of an animal’s ancestry and descendants used to maintain parentage, assess relationships, and support breeding decisions.
+
+Post-Breeding Care. Monitoring performed after breeding for return to heat, health changes, stress, nutrition, reproductive problems, and readiness for pregnancy confirmation.
+
+Post-Calving Care. Assessment and care provided after birth to monitor dam recovery, calf vigor, nursing and colostrum intake, health complications, identification, and follow-up schedules.
+
+Pregnancy Check. An assessment performed after breeding to determine whether a dam is pregnant, not pregnant, or requires continued monitoring.
+
+Pregnancy Confirmation. A recorded positive pregnancy-check outcome that closes the breeding service as successful and starts active pregnancy monitoring.
+
+Pregnancy Loss. Loss of a confirmed pregnancy before delivery, including abortion or other termination of gestation, recorded as an unsuccessful reproductive outcome requiring review.
+
+Preventive Care. Planned health activities intended to reduce disease risk, including vaccination, deworming, vitamins, minerals, routine checkups, and other approved interventions.
+
+Quarantine. Separation and monitoring of incoming, returning, or potentially exposed animals until required biosecurity and veterinary release conditions are met.
+
+Reproductive Cycle. The connected sequence of heat observation, breeding service, pregnancy check, gestation monitoring, calving, and post-calving care.
+
+Service Date. The date on which natural breeding or artificial insemination is performed and from which pregnancy-check and expected-calving schedules may be calculated.
+
+Semen Traceability. Recording semen-related information such as batch number, straw identifier, sire code, source, technician, thaw details, and insemination site for an artificial insemination service.
+
+Stillbirth. Birth of a calf that is dead at delivery; HerdSync records it as a calving outcome without creating an active livestock record for the calf.
+
+Treatment Course. The complete prescribed period of medicine or clinical intervention, including start date, end date, dose, route, frequency, instructions, and follow-up requirements.
+
+Treatment Withdrawal Status. The active, completed, or cleared state of a restriction linked to medicine use before an animal or its products may enter the food chain.
+
+Vaccination. Administration of a vaccine to protect against a target disease, with product, dose, route, site, batch, expiry, administrator, and next due date recorded.
+
+Veterinary Clearance. A veterinarian’s documented decision that an animal may be released from quarantine, treatment monitoring, or another health restriction after required conditions are satisfied.
+
+Workflow Status. The operational state assigned to a cattle-management record, such as pending, due, overdue, open, resolved, successful, unsuccessful, confirmed, delivered, or completed.

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "create-admin": "node scripts/create-admin.mjs",
+    "clear-livestock-demo": "node --env-file=.env.local scripts/clear-livestock-demo.mjs",
     "seed-demo": "node scripts/seed-demo.mjs",
     "seed-lineage": "node --env-file=.env.local scripts/seed-lineage.mjs",
     "seed-pregnancies": "node --env-file=.env.local scripts/seed-pregnancies.mjs",

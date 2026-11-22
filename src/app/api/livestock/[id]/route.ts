@@ -30,7 +30,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
   if (!entries.length) return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   const existing = await db.query("SELECT * FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
   if (!existing.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
-  if (existing.rows[0].status !== "active" && entries.some(([field]) => field !== "photo_urls")) return NextResponse.json({ error: "Inactive cattle profile is view-only" }, { status: 409 });
+  if (!["active", "culled"].includes(existing.rows[0].status) && entries.some(([field]) => field !== "photo_urls")) return NextResponse.json({ error: "This cattle profile is view-only" }, { status: 409 });
   const merged = { ...existing.rows[0], ...body };
   const photoOnly = entries.every(([field]) => field === "photo_urls");
   const error = photoOnly

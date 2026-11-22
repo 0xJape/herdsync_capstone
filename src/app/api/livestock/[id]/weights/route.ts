@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, context: Context) {
   if (!validText(body.recorded_by, 150)) return NextResponse.json({ error: "Recorded by is too long" }, { status: 400 });
   const animal = await db.query("SELECT tag_number, status FROM livestock WHERE id = $1 AND archived_at IS NULL", [id]);
   if (!animal.rows[0]) return NextResponse.json({ error: "Livestock not found" }, { status: 404 });
-  if (animal.rows[0].status !== "active") return NextResponse.json({ error: "Inactive cattle cannot receive new records" }, { status: 409 });
+  if (!["active", "culled"].includes(animal.rows[0].status)) return NextResponse.json({ error: "Only active or culled cattle can receive new records" }, { status: 409 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");

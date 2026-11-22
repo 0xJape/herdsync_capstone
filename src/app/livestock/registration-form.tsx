@@ -54,7 +54,7 @@ export default function RegistrationForm({ initialEditId = "", modalOnly = false
     if (party) party.childNodes[0].textContent = form.acquisition_type === "purchased" ? "Seller or organization " : "Donor or organization ";
     const contact = labels.find((label) => /^(Seller|Donor|Previous farm) contact/.test(label.textContent?.trim() ?? ""));
     const input = contact?.querySelector("input");
-    if (contact && input) { contact.childNodes[0].textContent = "Contact number (optional) "; contact.querySelector(".required-mark")?.remove(); input.required = false; input.inputMode = "tel"; input.placeholder = "+639XXXXXXXXX"; input.pattern = "\\+639\\d{9}"; input.title = "Use +639XXXXXXXXX format"; }
+    if (contact && input) { contact.classList.add("cattle-optional-contact"); contact.childNodes[0].textContent = "Contact number (optional) "; contact.querySelectorAll(".cattle-required-marker").forEach((marker) => marker.remove()); input.required = false; input.inputMode = "tel"; input.placeholder = "+639XXXXXXXXX"; input.pattern = "\\+639\\d{9}"; input.title = "Use +639XXXXXXXXX format"; }
   }, [form.acquisition_type, open]);
   const reset = useCallback(() => { setEditing(null); setForm(empty); setPhotos([]); setError(""); setConfirmRegistration(false); setSaveError(""); }, []);
   const close = useCallback(() => { setOpen(false); reset(); onClose?.(); }, [onClose, reset]);

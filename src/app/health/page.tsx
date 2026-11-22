@@ -8,7 +8,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
   HeartPulse,
   Eye,
   Pencil,
@@ -54,7 +53,6 @@ const titleCase = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g,
 const healthStatus = (record: HealthRecord) => {
   if (record.archived_at) return { className: "archived", label: "Archived", tooltip: "Archived records remain available for history but do not drive care schedules." };
   if (record.status === "open") return { className: "open", label: "Active", tooltip: "Active care still needs monitoring or follow-up." };
-  if ((record.follow_up_date && dateOnly(record.follow_up_date) >= today()) || (record.next_due_date && dateOnly(record.next_due_date) >= today())) return { className: "open", label: "Active", tooltip: "Care remains active because another review or treatment is scheduled." };
   return { className: "resolved", label: "Completed", tooltip: "Completed care needs no further action." };
 };
 const formatDate = (value: string) =>
@@ -156,27 +154,12 @@ export default function HealthPage() {
       else if (preset === "30-days") { setDateFrom(addDays(end, -29)); setDateTo(end); }
       setPage(1);
     };
-  const [showGuide, setShowGuide] = useState(false), [guideStep, setGuideStep] = useState(0);
   const [linkedRecords, setLinkedRecords] = useState<HealthRecord[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   });
-  const healthGuide = [
-    { selector: ".health-page-header", title: "Health workspace", text: "Start a health record here for checkups, vaccines, medicines, vitamins, and deworming." },
-    { selector: ".health-page > .health-records-panel:first-of-type", title: "Priority care worklist", text: "Review care due this week and switch to medicine restrictions requiring monitoring." },
-    { selector: ".health-calendar-panel", title: "Care calendar", text: "Navigate scheduled care by month and select a date to inspect its events." },
-    { selector: ".health-agenda", title: "Upcoming agenda", text: "See nearest follow-ups, treatment dates, pregnancy checks, and expected calving dates." },
-    { selector: ".health-page > .health-records-panel:last-of-type", title: "Health records", text: "Search, filter, review, edit, or archive recorded health history." },
-  ];
-  useEffect(() => {
-    if (!showGuide) return;
-    const target = document.querySelector(healthGuide[guideStep]?.selector);
-    document.querySelectorAll(".health-tour-highlight").forEach((node) => node.classList.remove("health-tour-highlight"));
-    if (target) { target.classList.add("health-tour-highlight"); target.scrollIntoView({ behavior: "smooth", block: "center" }); }
-    return () => target?.classList.remove("health-tour-highlight");
-  }, [guideStep, showGuide]);
   const load = useCallback(async () => {
     setLoading(true);
     const response = await fetch(
@@ -233,7 +216,7 @@ export default function HealthPage() {
       ).sort((a, b) => b.id - a.id),
     [records, status, recordType, dateFrom, dateTo],
   );
-  const recordTypes = ["all", "checkup", "vaccination", "vitamins", "antibiotics", "anti_inflammatory", "dewormer"];
+  const recordTypes = ["all", "checkup", "vaccination", "vitamins", "antibiotics", "anti_inflammatory", "dewormer", "quarantine_review", "quarantine_clearance"];
   const filteredAnimals = livestockSearch.trim()
     ? animals.filter((animal) =>
         String(animal.id) === form.livestock_id ||
@@ -467,7 +450,7 @@ export default function HealthPage() {
             history.
           </p>
         </div>
-        <div className="health-header-actions"><button type="button" className="secondary-button" onClick={() => { setGuideStep(0); setShowGuide(true); }}><CircleHelp size={16}/> Health page guide</button><button
+        <div className="health-header-actions"><button
           type="button"
           className="primary-button"
           onClick={() => {
@@ -479,7 +462,6 @@ export default function HealthPage() {
           <Plus size={16} /> Add health record
         </button></div>
       </header>
-      {showGuide && <aside className="breeding-walkthrough health-walkthrough" aria-label="Health page guide"><div><span className="cattle-eyebrow">Step {guideStep + 1} of {healthGuide.length}</span><h3>{healthGuide[guideStep].title}</h3><button type="button" className="breeding-walkthrough-close" onClick={() => setShowGuide(false)}>Exit guide</button></div><p>{healthGuide[guideStep].text}</p><footer><button type="button" className="secondary-button" disabled={guideStep === 0} onClick={() => setGuideStep((step) => step - 1)}>Back</button><button type="button" className="primary-button" onClick={() => guideStep === healthGuide.length - 1 ? setShowGuide(false) : setGuideStep((step) => step + 1)}>{guideStep === healthGuide.length - 1 ? "Finish" : "Next"}</button></footer></aside>}
       {error && (
         <p role="alert" className="cattle-error">
           {error}

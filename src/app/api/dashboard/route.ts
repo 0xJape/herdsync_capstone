@@ -67,7 +67,16 @@ export async function GET(request: Request) {
   if (searchParams.get("mode") === "attention") return NextResponse.json({ attention: await getAttention() });
 
     const [counts, composition, population, alerts, recent, attention] = await Promise.all([
-      db.query(`WITH care_schedule AS (${careSchedule}) SELECT (SELECT COUNT(*)::int FROM livestock WHERE status = 'active' AND archived_at IS NULL) active, (SELECT COUNT(*)::int FROM health_records WHERE status = 'open' AND record_type IN ('illness', 'injury', 'treatment', 'antibiotics', 'anti_inflammatory') AND archived_at IS NULL) attention, (SELECT COUNT(*)::int FROM care_schedule WHERE due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 7) due, (SELECT COUNT(*)::int FROM care_schedule WHERE due_date < CURRENT_DATE) critical, (SELECT COUNT(*)::int FROM care_schedule WHERE due_date = CURRENT_DATE) due_today, (SELECT COUNT(*)::int FROM care_schedule WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + 7) upcoming, 0::int unscheduled`),
+      db.query(`WITH care_schedule AS (${careSchedule}) SELECT
+        (SELECT COUNT(*)::int FROM livestock WHERE status = 'active' AND archived_at IS NULL) active,
+        (SELECT COUNT(*)::int FROM livestock WHERE status = 'active' AND archived_at IS NULL AND created_at < CURRENT_DATE - 30) active_previous,
+        (SELECT COUNT(*)::int FROM health_records WHERE status = 'open' AND record_type IN ('illness', 'injury', 'treatment', 'antibiotics', 'anti_inflammatory') AND archived_at IS NULL) attention,
+        (SELECT COUNT(*)::int FROM health_records WHERE status = 'open' AND record_type IN ('illness', 'injury', 'treatment', 'antibiotics', 'anti_inflammatory') AND archived_at IS NULL AND created_at < CURRENT_DATE - 30) attention_previous,
+        (SELECT COUNT(*)::int FROM care_schedule WHERE due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 7) due,
+        (SELECT COUNT(*)::int FROM care_schedule WHERE due_date BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE - 23) due_previous,
+        (SELECT COUNT(*)::int FROM care_schedule WHERE due_date < CURRENT_DATE) critical,
+        (SELECT COUNT(*)::int FROM care_schedule WHERE due_date = CURRENT_DATE) due_today,
+        (SELECT COUNT(*)::int FROM care_schedule WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + 7) upcoming, 0::int unscheduled`),
       db.query(`SELECT CASE WHEN notes ILIKE '%yearling bull%' THEN 'Yearling bull' WHEN notes ILIKE '%heifer%' THEN 'Heifer' WHEN notes ILIKE '%calf%' THEN 'Calf' WHEN notes ILIKE '%bull%' THEN 'Bull' WHEN notes ILIKE '%cow%' THEN 'Cow' ELSE 'Other' END label, COUNT(*)::int value FROM livestock WHERE status = 'active' AND archived_at IS NULL GROUP BY 1 ORDER BY CASE CASE WHEN notes ILIKE '%yearling bull%' THEN 'Yearling bull' WHEN notes ILIKE '%heifer%' THEN 'Heifer' WHEN notes ILIKE '%calf%' THEN 'Calf' WHEN notes ILIKE '%bull%' THEN 'Bull' WHEN notes ILIKE '%cow%' THEN 'Cow' ELSE 'Other' END WHEN 'Bull' THEN 1 WHEN 'Yearling bull' THEN 2 WHEN 'Cow' THEN 3 WHEN 'Heifer' THEN 4 WHEN 'Calf' THEN 5 ELSE 6 END`),
     db.query(`SELECT to_char(month_start, 'Mon') AS "month", COUNT(l.id)::int value FROM generate_series(date_trunc('month', NOW()) - interval '5 months', date_trunc('month', NOW()), interval '1 month') AS months(month_start) LEFT JOIN livestock l ON l.created_at < month_start + interval '1 month' AND l.archived_at IS NULL GROUP BY month_start ORDER BY month_start`),
       db.query(`WITH care_schedule AS (${careSchedule}) ${alertColumns} WHERE s.due_date <= CURRENT_DATE + 90 ORDER BY s.due_date, s.id DESC`),
@@ -75,10 +84,14 @@ export async function GET(request: Request) {
       getAttention(),
   ]);
     const count = counts.rows[0];
+  const trend = (current: number, previous: number) => ({
+    trendPercent: previous === 0 ? (current === 0 ? 0 : 100) : Math.round(((current - previous) / previous) * 100),
+    trendDirection: current === previous ? "flat" : current > previous ? "up" : "down",
+  });
   return NextResponse.json({
       updatedAt: new Date().toISOString(),
       operations: { overdue: count.critical, dueToday: count.due_today, upcoming: count.upcoming, unscheduled: count.unscheduled },
-      stats: [{ label: "Live cattle", value: count.active, detail: `${count.active} on hand  -  inventory report`, kind: "cattle", trendPercent: -14, trendDirection: "down" }, { label: "Active clinical cases", value: count.attention, detail: "Unresolved clinical records", kind: "health", trendPercent: 0, trendDirection: "flat" }, { label: "Due this week", value: count.due, detail: "Scheduled care", kind: "due", trendPercent: 0, trendDirection: "flat" }, { label: "Critical alerts", value: count.critical, detail: "Overdue care", kind: "alerts", trendPercent: 0, trendDirection: "flat" }],
+      stats: [{ label: "Live cattle", value: count.active, detail: `${count.active} on hand  -  inventory report`, kind: "cattle", ...trend(count.active, count.active_previous) }, { label: "Active clinical cases", value: count.attention, detail: "Unresolved clinical records", kind: "health", ...trend(count.attention, count.attention_previous) }, { label: "Due this week", value: count.due, detail: "Scheduled care", kind: "due", ...trend(count.due, count.due_previous) }, { label: "Critical alerts", value: count.critical, detail: "Overdue care", kind: "alerts", trendPercent: 0, trendDirection: "flat" }],
       composition: composition.rows,
     population: population.rows,
       alerts: alerts.rows,

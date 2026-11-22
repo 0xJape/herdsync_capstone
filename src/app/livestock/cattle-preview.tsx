@@ -39,9 +39,15 @@ export default function CattlePreview({ photos = [], onPhotosChange, onPhotoAdd,
 
   function addPhotos(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
+    const unsupported = selected.find((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type));
+    if (unsupported) {
+      setError(`${unsupported.name} has an unsupported format. Use JPEG, PNG, or WebP.`);
+      event.target.value = "";
+      return;
+    }
     const oversized = selected.find((file) => file.size > 5 * 1024 * 1024);
     if (oversized) {
-      setError(`${oversized.name} exceeds 5 MB.`);
+      setError(`${oversized.name} exceeds 5 MB. Choose a photo that is 5 MB or smaller.`);
       event.target.value = "";
       return;
     }
@@ -53,7 +59,7 @@ export default function CattlePreview({ photos = [], onPhotosChange, onPhotoAdd,
       reader.onload = () => resolve(String(reader.result));
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
-    }))).then(setPending);
+    }))).then(setPending).catch(() => setError("Selected photo could not be read. Try another file."));
     event.target.value = "";
   }
 

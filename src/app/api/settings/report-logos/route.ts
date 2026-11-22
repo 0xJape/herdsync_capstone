@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { uploadDirectory } from "@/lib/uploads";
 
 const maxSize = 2 * 1024 * 1024;
 const formats = [
@@ -13,7 +14,7 @@ const formats = [
 ];
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole("veterinarian", "faculty");
+  const auth = await requireRole("admin", "veterinarian", "faculty");
   if ("response" in auth) return auth.response;
   const form = await request.formData();
   const uploads = [["leftLogo", "report_left_logo"], ["rightLogo", "report_right_logo"]] as const;
@@ -28,9 +29,9 @@ export async function POST(request: NextRequest) {
     pending.push({ key, bytes, publicPath: `/uploads/report-logos/${randomUUID()}.${format.extension}` });
   }
   if (!pending.length) return NextResponse.json({ error: "Choose at least one logo image." }, { status: 400 });
-  const directory = path.join(process.cwd(), "public", "uploads", "report-logos");
+  const directory = uploadDirectory("report-logos");
   await mkdir(directory, { recursive: true });
-  for (const upload of pending) await writeFile(path.join(process.cwd(), "public", upload.publicPath.slice(1)), upload.bytes, { flag: "wx" });
+  for (const upload of pending) await writeFile(path.join(directory, path.basename(upload.publicPath)), upload.bytes, { flag: "wx" });
   const client = await db.connect();
   try {
     await client.query("BEGIN");

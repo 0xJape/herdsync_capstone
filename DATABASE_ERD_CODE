@@ -1,0 +1,471 @@
+erDiagram
+    direction TB
+
+    USERS {
+        bigint id PK
+        varchar(320) email UK "Required; lowercase; case-insensitive unique"
+        varchar(100) display_name "Required; max 100 characters"
+        text password_hash "Required; hashed value only"
+        varchar(20) role "admin|veterinarian|farm_aide|faculty"
+        boolean active "Inactive users cannot authenticate"
+        boolean notify_health_alerts
+        boolean notify_activity_digest
+        varchar(500) profile_image_url "Nullable; max 500 characters"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    SESSIONS {
+        char(64) token_hash PK "SHA-256 hash; exactly 64 characters"
+        bigint user_id FK "Required; cascade delete"
+        timestamptz expires_at
+        timestamptz created_at
+    }
+
+    CATTLE_BREEDS {
+        bigint id PK
+        varchar(100) name UK "Required; case-insensitive unique"
+        boolean active
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    LIVESTOCK {
+        bigint id PK
+        varchar(50) tag_number UK "Required; generated YYYY-NNN+"
+        varchar(100) name "Nullable; max 100 characters"
+        varchar(10) sex "male|female"
+        bigint breed_id FK "Required after legacy migration"
+        date birth_date "Required; not future"
+        numeric(8,2) current_weight_kg "Required; 0.01..1000"
+        varchar(20) status "active|sold|culled|deceased|transferred_out"
+        varchar(300) color_markings
+        varchar(150) notes "Max 150 characters"
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+        varchar(300) archive_reason
+        bigint archived_by_user_id FK "Nullable; SET NULL"
+    }
+
+    LIVESTOCK_PHOTOS {
+        bigint id PK
+        bigint livestock_id FK
+        integer ordinal "1..3; unique per livestock"
+        varchar(500) url "Required; /uploads/cattle/"
+        timestamptz created_at
+    }
+
+    LIVESTOCK_PARENTAGE {
+        bigint livestock_id PK,FK
+        bigint sire_id FK "Nullable; male livestock"
+        bigint dam_id FK "Nullable; female livestock"
+        varchar(15) certainty "reported|confirmed"
+        bigint recorded_by_user_id FK "Nullable; SET NULL"
+        timestamptz recorded_at
+    }
+
+    CONTACTS {
+        bigint id PK
+        varchar(150) name "Required"
+        varchar(150) organization
+        varchar(30) phone
+        varchar(320) email
+        varchar(300) address
+    }
+
+    PRACTITIONERS {
+        bigint id PK
+        bigint contact_id FK
+        bigint user_id FK,UK "Optional account"
+        varchar(100) designation
+        boolean active
+    }
+
+    ACQUISITIONS {
+        bigint id PK
+        bigint livestock_id FK,UK
+        varchar(30) acquisition_type "born_on_farm|purchased|donated|transferred_in"
+        date acquisition_date "Required except born_on_farm"
+        bigint source_contact_id FK "Required for purchased or donated"
+        varchar(200) previous_farm "Used for transferred_in"
+        numeric(12,2) purchase_price "Required and positive for purchased"
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    QUARANTINE_RECORDS {
+        bigint id PK
+        bigint livestock_id FK
+        date start_date
+        date expected_end_date "Normally start + 30 days"
+        date actual_end_date
+        varchar(20) status "active|pending_clearance|released"
+        varchar(300) reason
+        varchar(150) notes "Max 150 characters"
+        bigint cleared_by_practitioner_id FK "Veterinarian only"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+        datetime updated_at
+    }
+
+    WEIGHT_RECORDS {
+        bigint id PK
+        bigint livestock_id FK
+        date measured_at
+        numeric(8,2) weight_kg "Required; 0.01..1000"
+        bigint practitioner_id FK "Optional normalized recorder"
+        varchar(150) legacy_recorded_by "Migration fallback"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        varchar(150) notes "Max 150 characters"
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    PHYSICAL_ASSESSMENTS {
+        bigint id PK
+        bigint livestock_id FK
+        date assessed_at
+        numeric(3,2) body_condition_score "Canonical scale required; 1..5"
+        varchar(10) health_status "excellent|good|fair|poor"
+        varchar(150) notes "Max 150 characters"
+        bigint practitioner_id FK
+        varchar(150) legacy_recorded_by "Migration fallback"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+        datetime archived_at
+    }
+
+    HEALTH_RECORDS {
+        bigint id PK
+        bigint livestock_id FK
+        bigint source_health_record_id FK "Optional; restrict delete"
+        varchar(30) record_type "Server-validated care domain"
+        date record_date
+        varchar(300) diagnosis
+        varchar(150) details "Max 150 characters"
+        varchar(10) status "open|resolved"
+        bigint practitioner_id FK
+        varchar(150) legacy_practitioner_name "Migration fallback"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    TREATMENT_TYPES {
+        bigint id PK
+        varchar(100) name UK "Required; case-insensitive unique"
+        boolean active
+    }
+
+    TREATMENT_PRODUCTS {
+        bigint id PK
+        bigint treatment_type_id FK
+        varchar(200) name "Unique by type; case-insensitive"
+        boolean active
+        datetime created_at
+    }
+
+    ADMINISTRATION_ROUTES {
+        bigint id PK
+        varchar(100) name UK "Required; case-insensitive unique"
+        varchar(300) description
+    }
+
+    TREATMENTS {
+        bigint id PK
+        bigint health_record_id FK
+        bigint product_id FK "Optional for legacy text"
+        varchar(200) legacy_medication_name "Migration fallback"
+        bigint administration_route_id FK
+        varchar(100) legacy_route_name "Migration fallback"
+        numeric(8,2) dose_amount "Positive when supplied"
+        varchar(20) dose_unit
+        varchar(50) frequency
+        date start_date
+        date end_date "Must be >= start"
+        date withdrawal_end_date "Must be >= final treatment"
+        bigint practitioner_id FK
+        varchar(150) instructions "Max 150 characters"
+        datetime created_at
+    }
+
+    HEALTH_SCHEDULES {
+        bigint id PK
+        bigint health_record_id FK
+        varchar(30) schedule_type "next_due|follow_up|quarantine_clearance"
+        date due_date "After source record date"
+        varchar(15) status "pending|completed|cancelled"
+        timestamptz completed_at
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    ALERT_ACKNOWLEDGEMENTS {
+        bigint user_id PK,FK
+        bigint health_schedule_id PK,FK
+        datetime acknowledged_at
+    }
+
+    REPRODUCTIVE_CYCLES {
+        bigint id PK
+        bigint dam_id FK "Required; female livestock"
+        date opened_at
+        date closed_at
+        varchar(15) status "open|pregnant|calved|closed"
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    BREEDING_SERVICES {
+        bigint id PK
+        bigint reproductive_cycle_id FK
+        bigint sire_id FK "Optional service sire"
+        date service_date
+        varchar(30) service_method "natural_service|artificial_insemination"
+        varchar(100) semen_reference
+        bigint practitioner_id FK
+        varchar(150) legacy_performed_by "Migration fallback"
+        varchar(150) details "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+        datetime updated_at
+        datetime archived_at
+    }
+
+    BREEDING_SERVICE_PHOTOS {
+        bigint id PK
+        bigint breeding_service_id FK
+        integer ordinal "1..3; unique per service"
+        varchar(500) url "Required; /uploads/breeding/"
+        timestamptz created_at
+    }
+
+    PREGNANCIES {
+        bigint id PK
+        bigint reproductive_cycle_id FK
+        bigint service_id FK,UK "Pregnancy anchored to service"
+        varchar(20) status "pending|pregnant|not_pregnant|lost|calved"
+        date expected_calving_date "Default service + 283 days"
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+        datetime updated_at
+    }
+
+    PREGNANCY_CHECKUPS {
+        bigint id PK
+        bigint pregnancy_id FK
+        date checkup_date "Unique per pregnancy"
+        varchar(20) pregnancy_result "pregnant|not_pregnant|inconclusive"
+        varchar(100) examination_method
+        integer estimated_gestation_days
+        date expected_calving_date
+        varchar(150) findings "Max 150 characters"
+        date next_checkup_date
+        bigint practitioner_id FK
+        varchar(150) legacy_practitioner_name "Migration fallback"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    PREGNANCY_CHECKUP_ASSESSMENTS {
+        bigint checkup_id PK,FK
+        bigint physical_assessment_id FK,UK
+    }
+
+    PREGNANCY_CHECKUP_WEIGHTS {
+        bigint checkup_id PK,FK
+        bigint weight_record_id FK,UK
+    }
+
+    CALVING_EVENTS {
+        bigint id PK
+        bigint pregnancy_id FK,UK "One calving per pregnancy"
+        bigint service_id FK,UK "Retained provenance"
+        date calving_date
+        varchar(30) calving_difficulty "unassisted|minor|major|caesarean"
+        bigint practitioner_id FK
+        varchar(150) legacy_performed_by "Migration fallback"
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    CALVING_OUTCOMES {
+        bigint id PK
+        bigint calving_event_id FK
+        smallint birth_order "Unique per calving; 1..2"
+        varchar(20) outcome "live|stillborn|neonatal_death"
+        bigint livestock_id FK,UK "Null only for stillborn"
+        varchar(100) historical_name "For outcome without livestock row"
+        varchar(10) sex "male|female"
+        numeric(8,2) birth_weight_kg "Positive"
+        varchar(20) calf_vigor "vigorous|normal|weak|critical"
+        varchar(150) notes "Max 150 characters"
+        datetime created_at
+    }
+
+    CALF_CARE_PLANS {
+        bigint id PK
+        bigint livestock_id FK "Cascade delete"
+        varchar(50) care_type
+        date due_date
+        varchar(15) status "pending|completed|cancelled"
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime completed_at
+        datetime created_at
+    }
+
+    WEANING_RECORDS {
+        bigint livestock_id PK,FK
+        date weaning_date "Not before birth"
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    WEANING_WEIGHTS {
+        bigint livestock_id PK,FK
+        bigint weight_record_id FK,UK
+    }
+
+    MANAGEMENT_DECISIONS {
+        bigint id PK
+        bigint livestock_id FK
+        date decision_date
+        varchar(100) decision
+        varchar(150) notes "Max 150 characters"
+        bigint created_by_user_id FK "Nullable; SET NULL"
+        datetime created_at
+    }
+
+    ACTIVITY_LOGS {
+        bigint id PK
+        bigint user_id FK "Nullable; SET NULL"
+        varchar(50) action
+        varchar(50) entity_type
+        bigint entity_id "Polymorphic audit reference; not FK"
+        varchar(200) title
+        varchar(150) detail "Max 150 characters"
+        datetime created_at
+    }
+
+    SYSTEM_SETTINGS {
+        varchar(100) key PK
+        varchar(2000) value "Required; max 2,000 characters"
+        bigint updated_by_user_id FK "Nullable; SET NULL"
+        datetime updated_at
+    }
+
+    USERS ||--o{ SESSIONS : has
+    USERS o|--o{ ACTIVITY_LOGS : performs
+    USERS o|--o{ SYSTEM_SETTINGS : updates
+    USERS o|--o| PRACTITIONERS : may_link
+    USERS o|--o{ CATTLE_BREEDS : creates
+    USERS o|--o{ LIVESTOCK : archives
+    CATTLE_BREEDS ||--o{ LIVESTOCK : classifies
+    LIVESTOCK ||--o{ LIVESTOCK_PHOTOS : has
+    LIVESTOCK ||--o| LIVESTOCK_PARENTAGE : has_parentage
+    LIVESTOCK o|--o{ LIVESTOCK_PARENTAGE : sire_of
+    LIVESTOCK o|--o{ LIVESTOCK_PARENTAGE : dam_of
+    CONTACTS ||--o{ PRACTITIONERS : identifies
+    CONTACTS o|--o{ ACQUISITIONS : supplies
+    LIVESTOCK ||--o| ACQUISITIONS : has
+    LIVESTOCK ||--o{ QUARANTINE_RECORDS : undergoes
+    PRACTITIONERS o|--o{ QUARANTINE_RECORDS : clears
+    LIVESTOCK ||--o{ WEIGHT_RECORDS : has
+    LIVESTOCK ||--o{ PHYSICAL_ASSESSMENTS : receives
+    LIVESTOCK ||--o{ HEALTH_RECORDS : has
+    LIVESTOCK ||--o{ CALF_CARE_PLANS : has
+    LIVESTOCK ||--o| WEANING_RECORDS : has
+    LIVESTOCK ||--o{ MANAGEMENT_DECISIONS : has
+    PRACTITIONERS o|--o{ WEIGHT_RECORDS : measures
+    PRACTITIONERS o|--o{ PHYSICAL_ASSESSMENTS : assesses
+    PRACTITIONERS o|--o{ HEALTH_RECORDS : handles
+    PRACTITIONERS o|--o{ TREATMENTS : administers
+    HEALTH_RECORDS o|--o{ HEALTH_RECORDS : follows
+    HEALTH_RECORDS ||--o{ TREATMENTS : includes
+    HEALTH_RECORDS ||--o{ HEALTH_SCHEDULES : schedules
+    TREATMENT_TYPES ||--o{ TREATMENT_PRODUCTS : categorizes
+    TREATMENT_PRODUCTS o|--o{ TREATMENTS : used_in
+    ADMINISTRATION_ROUTES o|--o{ TREATMENTS : specifies
+    USERS ||--o{ ALERT_ACKNOWLEDGEMENTS : acknowledges
+    HEALTH_SCHEDULES ||--o{ ALERT_ACKNOWLEDGEMENTS : receives
+    LIVESTOCK ||--o{ REPRODUCTIVE_CYCLES : dam_of
+    REPRODUCTIVE_CYCLES ||--o{ BREEDING_SERVICES : includes
+    LIVESTOCK o|--o{ BREEDING_SERVICES : sire_of
+    PRACTITIONERS o|--o{ BREEDING_SERVICES : performs
+    BREEDING_SERVICES ||--o{ BREEDING_SERVICE_PHOTOS : has
+    REPRODUCTIVE_CYCLES ||--o{ PREGNANCIES : contains
+    BREEDING_SERVICES ||--o| PREGNANCIES : results_in
+    PREGNANCIES ||--o{ PREGNANCY_CHECKUPS : monitored_by
+    PRACTITIONERS o|--o{ PREGNANCY_CHECKUPS : examines
+    PREGNANCY_CHECKUPS ||--o| PREGNANCY_CHECKUP_ASSESSMENTS : links
+    PHYSICAL_ASSESSMENTS ||--o| PREGNANCY_CHECKUP_ASSESSMENTS : supports
+    PREGNANCY_CHECKUPS ||--o| PREGNANCY_CHECKUP_WEIGHTS : links
+    WEIGHT_RECORDS ||--o| PREGNANCY_CHECKUP_WEIGHTS : supports
+    PREGNANCIES ||--o| CALVING_EVENTS : concludes_with
+    BREEDING_SERVICES ||--o| CALVING_EVENTS : provenance
+    PRACTITIONERS o|--o{ CALVING_EVENTS : assists
+    CALVING_EVENTS ||--|{ CALVING_OUTCOMES : records
+    LIVESTOCK o|--o| CALVING_OUTCOMES : represents
+    WEANING_RECORDS ||--o| WEANING_WEIGHTS : links
+    WEIGHT_RECORDS ||--o| WEANING_WEIGHTS : supplies
+    USERS o|--o{ ACQUISITIONS : records
+    USERS o|--o{ QUARANTINE_RECORDS : records
+    USERS o|--o{ WEIGHT_RECORDS : records
+    USERS o|--o{ PHYSICAL_ASSESSMENTS : records
+    USERS o|--o{ HEALTH_RECORDS : records
+    USERS o|--o{ HEALTH_SCHEDULES : creates
+    USERS o|--o{ REPRODUCTIVE_CYCLES : records
+    USERS o|--o{ BREEDING_SERVICES : records
+    USERS o|--o{ PREGNANCIES : records
+    USERS o|--o{ PREGNANCY_CHECKUPS : records
+    USERS o|--o{ CALVING_EVENTS : records
+    USERS o|--o{ CALF_CARE_PLANS : creates
+    USERS o|--o{ WEANING_RECORDS : records
+    USERS o|--o{ MANAGEMENT_DECISIONS : records
+
+TABLE EXPLANATIONS
+
+USERS stores HerdSync user accounts, roles, login credentials, notification settings, and profile information.
+SESSIONS stores active login sessions using securely hashed session tokens.
+CATTLE_BREEDS stores editable cattle breed choices used by livestock records.
+LIVESTOCK stores the main cattle registry, including identity, sex, breed, birth date, weight, status, markings, and archive information.
+LIVESTOCK_PHOTOS stores image URLs and display order for livestock photos.
+LIVESTOCK_PARENTAGE stores sire, dam, and parentage certainty for livestock.
+CONTACTS stores people and organizations with names, phone numbers, emails, and addresses.
+PRACTITIONERS stores veterinary or animal-health personnel and links them to contact details and optional user accounts.
+ACQUISITIONS stores how livestock entered the farm, including purchase, donation, transfer, or birth on farm.
+QUARANTINE_RECORDS stores livestock quarantine periods, reasons, dates, status, and clearance information.
+WEIGHT_RECORDS stores historical livestock weight measurements and recording information.
+PHYSICAL_ASSESSMENTS stores physical examinations, body-condition scores, health status, and assessment notes.
+HEALTH_RECORDS stores livestock health events, diagnoses, details, statuses, dates, and practitioners.
+TREATMENT_TYPES stores editable treatment categories such as vaccines, antibiotics, or supplements.
+TREATMENT_PRODUCTS stores editable products belonging to treatment categories.
+ADMINISTRATION_ROUTES stores editable treatment administration methods such as oral or injectable.
+TREATMENTS stores treatment details, including product, route, dosage, frequency, dates, and instructions.
+HEALTH_SCHEDULES stores future health tasks such as follow-ups, next treatments, and quarantine clearances.
+ALERT_ACKNOWLEDGEMENTS records which users acknowledged health schedule alerts.
+REPRODUCTIVE_CYCLES stores female livestock reproductive cycles from opening through pregnancy, calving, or closure.
+BREEDING_SERVICES stores breeding events, service dates, breeding methods, sires, and semen references.
+BREEDING_SERVICE_PHOTOS stores image URLs and display order for breeding service photos.
+PREGNANCIES stores pregnancy records linked to reproductive cycles and breeding services.
+PREGNANCY_CHECKUPS stores pregnancy examination dates, results, gestation estimates, findings, and follow-up dates.
+PREGNANCY_CHECKUP_ASSESSMENTS links pregnancy checkups to physical assessments.
+PREGNANCY_CHECKUP_WEIGHTS links pregnancy checkups to livestock weight records.
+CALVING_EVENTS stores calving dates, difficulty, assisting practitioners, and calving notes.
+CALVING_OUTCOMES stores each calf outcome, including birth order, outcome, sex, weight, vigor, and livestock link.
+CALF_CARE_PLANS stores planned calf-care tasks, due dates, statuses, and notes.
+WEANING_RECORDS stores livestock weaning dates and notes.
+WEANING_WEIGHTS links weaning records to the corresponding livestock weight records.
+MANAGEMENT_DECISIONS stores farm decisions made for livestock, such as retaining, selling, culling, breeding, or transferring.
+ACTIVITY_LOGS stores an audit trail of user actions and affected records.
+SYSTEM_SETTINGS stores administrator-managed application configuration values.

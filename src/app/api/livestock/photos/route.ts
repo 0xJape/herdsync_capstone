@@ -2,7 +2,8 @@ import { requireRole } from "@/lib/auth";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
+import { uploadDirectory } from "@/lib/uploads";
+import path from "node:path";
 
 const types = {
   "image/jpeg": { extension: "jpg", signature: (bytes: Buffer) => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff },
@@ -11,7 +12,7 @@ const types = {
 } as const;
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole("veterinarian", "farm_aide");
+  const auth = await requireRole("admin", "veterinarian", "farm_aide");
   if ("response" in auth) return auth.response;
   const { image } = await request.json() as { image?: unknown };
   if (typeof image !== "string") return NextResponse.json({ error: "Photo is required" }, { status: 400 });
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   if (!bytes.length || bytes.length > 5 * 1024 * 1024) return NextResponse.json({ error: "Photo must be 5 MB or smaller" }, { status: 400 });
   if (!types[type].signature(bytes)) return NextResponse.json({ error: "Photo content does not match its file type" }, { status: 400 });
   const filename = `${randomUUID()}.${types[type].extension}`;
-  const directory = path.join(process.cwd(), "public", "uploads", "cattle");
+  const directory = uploadDirectory("cattle");
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, filename), bytes, { flag: "wx" });
   return NextResponse.json({ url: `/uploads/cattle/${filename}` }, { status: 201 });

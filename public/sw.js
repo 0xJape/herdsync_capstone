@@ -1,6 +1,13 @@
 /* ponytail: public offline shell only; offline records need a separate security/data-sync design. */
-const CACHE = "herdsync-offline-v1";
-const ASSETS = ["/offline.html", "/icons/icon-192.png"];
+const CACHE = "herdsync-offline-v2";
+const ASSETS = [
+  "/offline.html",
+  "/icons/icon-192.png",
+  "/fonts/poppins-400.woff2",
+  "/fonts/poppins-500.woff2",
+  "/fonts/poppins-600.woff2",
+  "/fonts/poppins-700.woff2",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));

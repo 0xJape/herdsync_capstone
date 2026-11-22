@@ -63,7 +63,8 @@ export async function POST(request: NextRequest, context: Context) {
   if (eventType === "heat_observed" && body.details != null && !validText(body.details, 150)) return NextResponse.json({ error: "Heat notes must be at most 150 characters" }, { status: 400 });
   if (eventType === "heat_watch_removed" && !["not_in_heat", "pregnant", "entered_by_mistake"].includes(String(body.details))) return NextResponse.json({ error: "Valid heat-watch removal reason is required" }, { status: 400 });
   if (["pregnancy_confirmed", "pregnancy_negative"].includes(eventType) && (!validText(body.details, 10000, true) || !validText(body.performed_by, 150, true))) return NextResponse.json({ error: "Pregnancy check notes and confirmed by are required" }, { status: 400 });
-  if (!eventDate || eventDate > new Date().toISOString().slice(0, 10)) return NextResponse.json({ error: "Breeding event cannot be in the future" }, { status: 400 });
+  const databaseToday = (await db.query("SELECT TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') today")).rows[0].today;
+  if (!eventDate || eventDate > databaseToday) return NextResponse.json({ error: "Breeding event cannot be in the future" }, { status: 400 });
   if (body.expected_calving_date && String(body.expected_calving_date) <= eventDate) return NextResponse.json({ error: "Expected calving must be after the event date" }, { status: 400 });
   for (const [field, max] of [["pregnancy_status", 50], ["details", 10000], ["performed_by", 150]] as const) if (body[field] != null && !validText(body[field], max)) return NextResponse.json({ error: `${field} is too long` }, { status: 400 });
   const sireId = body.sire_id == null || body.sire_id === "" ? null : Number(body.sire_id);

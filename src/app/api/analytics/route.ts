@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (sex && !["male", "female"].includes(sex)) return NextResponse.json({ error: "Invalid sex filter" }, { status: 400 });
 
   const [livestockResult, breedingResult, healthResult, calvingResult, reproductionStatusResult] = await Promise.all([
-    db.query("SELECT id,sex,breed,birth_date,has_calved,status,acquisition_type,acquisition_date,created_at,archived_at,current_weight_kg FROM livestock ORDER BY created_at"),
+    db.query("SELECT id,sex,breed,birth_date,has_calved,status,acquisition_type,acquisition_date,created_at,archived_at,current_weight_kg FROM livestock WHERE created_at::date <= $2::date AND (archived_at IS NULL OR archived_at::date >= $1::date) ORDER BY created_at", [from, to]),
     db.query(`SELECT b.id,b.livestock_id,b.event_type,b.event_date,b.source_service_id,b.expected_calving_date
       FROM breeding_records b
       LEFT JOIN breeding_records service ON service.id = b.source_service_id

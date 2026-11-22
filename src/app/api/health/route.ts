@@ -72,14 +72,14 @@ export async function POST(request: NextRequest) {
   if (dateError) return NextResponse.json({ error: dateError }, { status: 400 });
   const animals = await db.query("SELECT id, tag_number, status FROM livestock WHERE id = ANY($1::bigint[]) AND archived_at IS NULL", [livestockIds]);
   if (animals.rowCount !== livestockIds.length) return NextResponse.json({ error: "One or more livestock were not found" }, { status: 404 });
-  if (animals.rows.some((animal) => animal.status !== "active")) return NextResponse.json({ error: "Inactive cattle cannot receive new health records" }, { status: 409 });
+  if (animals.rows.some((animal) => !["active", "culled"].includes(animal.status))) return NextResponse.json({ error: "Only active or culled cattle can receive new health records" }, { status: 409 });
   const client = await db.connect();
   try {
     await client.query("BEGIN");
     if (Number.isSafeInteger(scheduledFromId)) {
       const source = await client.query("SELECT id FROM health_records WHERE id = $1 AND livestock_id = $2 AND record_type = $3 AND next_due_date IS NOT NULL AND archived_at IS NULL FOR UPDATE", [scheduledFromId, livestockIds[0], recordType]);
       if (!source.rowCount) throw new Error("SCHEDULED_CARE_NOT_FOUND");
-      await client.query("UPDATE health_records SET next_due_date = NULL, updated_at = NOW() WHERE id = $1", [scheduledFromId]);
+      await client.query("UPDATE health_records SET next_due_date = NULL, status = CASE WHEN follow_up_date IS NULL THEN 'resolved' ELSE status END, updated_at = NOW() WHERE id = $1", [scheduledFromId]);
     }
     if (Number.isSafeInteger(calfCarePlanId)) {
       const plan = await client.query("SELECT id FROM calf_care_plans WHERE id = $1 AND livestock_id = $2 AND status = 'pending' FOR UPDATE", [calfCarePlanId, livestockIds[0]]);

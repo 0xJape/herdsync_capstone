@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { uploadDirectory } from "@/lib/uploads";
 
 const maxSize = 10 * 1024 * 1024;
 const formats = [
@@ -22,8 +23,9 @@ export async function POST(request: NextRequest) {
   const format = formats.find((candidate) => candidate.mime === value.type && candidate.matches(bytes));
   if (!format) return NextResponse.json({ error: "Profile picture must be a valid PNG, JPEG, or WebP image." }, { status: 400 });
   const publicPath = `/uploads/profile-pictures/${auth.user.id}-${randomUUID()}.${format.extension}`;
-  await mkdir(path.join(process.cwd(), "public", "uploads", "profile-pictures"), { recursive: true });
-  await writeFile(path.join(process.cwd(), "public", publicPath.slice(1)), bytes, { flag: "wx" });
+  const directory = uploadDirectory("profile-pictures");
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, path.basename(publicPath)), bytes, { flag: "wx" });
   await db.query("UPDATE users SET profile_image_url = $1, updated_at = NOW() WHERE id = $2", [publicPath, auth.user.id]);
   return NextResponse.json({ profileImageUrl: publicPath });
 }

@@ -13,15 +13,18 @@ const schedule = `
   SELECT h.id, h.livestock_id, h.record_type, h.withdrawal_end_date, 'withdrawal_end', 'Withdrawal ends'
   FROM health_records h WHERE h.archived_at IS NULL AND h.withdrawal_end_date >= CURRENT_DATE
   UNION ALL
+  SELECT c.id, c.livestock_id, 'calf_care', c.due_date, 'calf_care', INITCAP(REPLACE(c.care_type, '_', ' ')) || ' due'
+  FROM calf_care_plans c
+  WHERE c.status = 'pending'
+  UNION ALL
   SELECT b.id, b.livestock_id, 'breeding' record_type, b.event_date + 45, 'pregnancy_check', 'Breeding pregnancy check due'
   FROM breeding_records b
   WHERE b.archived_at IS NULL
     AND b.event_type IN ('natural_service', 'artificial_insemination')
-    AND b.event_date + 45 <= CURRENT_DATE
     AND NOT EXISTS (
       SELECT 1 FROM breeding_records outcome
       WHERE outcome.source_service_id = b.id
-        AND outcome.event_type IN ('pregnancy_confirmed', 'pregnancy_negative')
+        AND outcome.event_type IN ('pregnancy_confirmed', 'pregnancy_negative', 'pregnancy_loss', 'calving')
         AND outcome.archived_at IS NULL
     )
   UNION ALL
@@ -33,7 +36,6 @@ const schedule = `
   WHERE confirmation.archived_at IS NULL
     AND service.archived_at IS NULL
     AND confirmation.event_type = 'pregnancy_confirmed'
-    AND COALESCE(confirmation.expected_calving_date, service.expected_calving_date, service.event_date + 283) <= CURRENT_DATE
     AND NOT EXISTS (
       SELECT 1 FROM breeding_records outcome
       WHERE outcome.source_service_id = service.id

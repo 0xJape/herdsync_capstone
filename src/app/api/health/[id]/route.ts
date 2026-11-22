@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest, context: Context) {
   for (const [field, max] of [["veterinarian", 100], ["diagnosis", 5000], ["details", 50], ["treatment", 5000], ["medication_name", 200], ["dose", 100], ["administration_route", 100]] as const) if (body[field] !== undefined && (typeof body[field] !== "string" || body[field].length > max)) return NextResponse.json({ error: `${field} is too long` }, { status: 400 });
   const current = await db.query("SELECT h.*, l.status livestock_status, l.archived_at livestock_archived_at FROM health_records h JOIN livestock l ON l.id = h.livestock_id WHERE h.id = $1 AND h.archived_at IS NULL", [id]);
   if (!current.rows[0]) return NextResponse.json({ error: "Health record not found" }, { status: 404 });
-  if (current.rows[0].livestock_status !== "active" || current.rows[0].livestock_archived_at) return NextResponse.json({ error: "Inactive cattle health records are read-only" }, { status: 409 });
+  if (!["active", "culled"].includes(current.rows[0].livestock_status) || current.rows[0].livestock_archived_at) return NextResponse.json({ error: "Only active or culled cattle health records can be edited" }, { status: 409 });
   const merged = { ...current.rows[0], ...body };
   const recordType = String(merged.record_type).trim();
   if (!healthRecordTypes.has(recordType)) return NextResponse.json({ error: "Invalid record type" }, { status: 400 });
